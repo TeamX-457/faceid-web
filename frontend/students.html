@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guidian AI - Students</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen">
+  <nav class="bg-slate-900 text-white px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-8">
+      <span class="font-bold">Guidian AI</span>
+      <a href="dashboard.html" class="text-sm font-medium text-slate-300 hover:text-white">Dashboard</a>
+      <a href="students.html" class="text-sm font-medium border-b-2 border-white pb-1">Students</a>
+    </div>
+    <div class="flex items-center gap-4 text-sm">
+      <span id="user-label" class="text-slate-300"></span>
+      <button onclick="logout()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg">Logout</button>
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto p-6">
+    <div class="flex items-center justify-between mb-4 gap-4">
+      <h1 class="text-xl font-bold text-slate-900">Student Roster</h1>
+      <input id="search" type="text" placeholder="Search by name..."
+        class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-slate-900" />
+      <button id="add-btn" class="bg-slate-900 text-white text-sm font-medium rounded-lg px-4 py-1.5 hover:bg-slate-800">+ Add Student</button>
+    </div>
+
+    <div id="add-form" class="hidden bg-white border border-slate-200 rounded-xl p-4 mb-4">
+      <h2 class="text-sm font-semibold text-slate-900 mb-3">Enroll New Student</h2>
+      <form id="enroll-form" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Full Name</label>
+          <input id="enroll-name" required class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Class</label>
+          <input id="enroll-class" required class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Photo</label>
+          <input id="enroll-photo" type="file" accept="image/*" required class="w-full text-sm" />
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="flex-1 bg-slate-900 text-white text-sm font-medium rounded-lg py-1.5">Enroll</button>
+          <button type="button" id="cancel-add" class="flex-1 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg py-1.5">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="loading" class="text-sm text-slate-500">Loading students...</div>
+    <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-100 text-slate-600 text-left">
+          <tr>
+            <th class="px-4 py-2">Full Name</th>
+            <th class="px-4 py-2">Class</th>
+            <th class="px-4 py-2">Enrolled</th>
+            <th class="px-4 py-2 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="student-rows"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    const session = requireRole("ADMIN");
+    document.getElementById("user-label").textContent = `${session.fullName} (${session.role})`;
+
+    let students = [];
+
+    function renderStudents() {
+      const query = document.getElementById("search").value.trim().toLowerCase();
+      const filtered = students.filter((s) => s.fullName.toLowerCase().includes(query));
+
+      document.getElementById("student-rows").innerHTML = filtered
+        .map(
+          (s) => `
+        <tr class="border-t border-slate-100" data-row="${s.id}">
+          <td class="px-4 py-2 name-cell">${s.fullName}</td>
+          <td class="px-4 py-2 class-cell">${s.studentClass}</td>
+          <td class="px-4 py-2 text-slate-500">${formatDate(s.enrollmentDate)}</td>
+          <td class="px-4 py-2 text-right space-x-2">
+            <button data-id="${s.id}" class="edit-btn text-slate-600 hover:text-slate-900 font-medium">Edit</button>
+            <button data-id="${s.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium">Delete</button>
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      document.querySelectorAll(".edit-btn").forEach((btn) => btn.addEventListener("click", () => editStudent(btn.dataset.id)));
+      document.querySelectorAll(".delete-btn").forEach((btn) => btn.addEventListener("click", () => deleteStudent(btn.dataset.id)));
+    }
+
+    async function loadStudents() {
+      try {
+        students = await apiFetch("/api/v1/students");
+        document.getElementById("loading").classList.add("hidden");
+        renderStudents();
+      } catch (err) {
+        document.getElementById("loading").textContent = "Failed to load students: " + err.message;
+      }
+    }
+
+    async function editStudent(id) {
+      const student = students.find((s) => String(s.id) === String(id));
+      const fullName = prompt("Full name:", student.fullName);
+      if (fullName === null) return;
+      const studentClass = prompt("Class:", student.studentClass);
+      if (studentClass === null) return;
+      try {
+        await apiFetch(`/api/v1/students/${id}`, { method: "PUT", body: { fullName, studentClass } });
+        showToast("Student updated");
+        await loadStudents();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function deleteStudent(id) {
+      if (!confirm("Remove this student from the roster?")) return;
+      try {
+        await apiFetch(`/api/v1/students/${id}`, { method: "DELETE" });
+        showToast("Student deleted");
+        await loadStudents();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    document.getElementById("search").addEventListener("input", renderStudents);
+
+    const addForm = document.getElementById("add-form");
+    document.getElementById("add-btn").addEventListener("click", () => addForm.classList.toggle("hidden"));
+    document.getElementById("cancel-add").addEventListener("click", () => addForm.classList.add("hidden"));
+
+    document.getElementById("enroll-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append("full_name", document.getElementById("enroll-name").value);
+      formData.append("student_class", document.getElementById("enroll-class").value);
+      formData.append("enrollment_photo", document.getElementById("enroll-photo").files[0]);
+
+      try {
+        await apiFetch("/api/v1/students", { method: "POST", formData });
+        showToast("Student enrolled");
+        e.target.reset();
+        addForm.classList.add("hidden");
+        await loadStudents();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    loadStudents();
+  </script>
+</body>
+</html>

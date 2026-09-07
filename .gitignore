@@ -1,0 +1,10 @@
+.env
+*.env
+target/
+uploads/*
+!uploads/.gitkeep
+.claude/
+project.zip
+faceid-python-service/models/*.onnx
+__pycache__/
+*.pyc

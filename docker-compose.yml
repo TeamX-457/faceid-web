@@ -1,0 +1,52 @@
+services:
+  # Python AI Microservice
+  python-ai-service:
+    build:
+      context: ./faceid-python-service
+      dockerfile: Dockerfile
+    container_name: faceid-python-service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./faceid-python-service/models:/app/models
+    environment:
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - faceid-network
+
+  # Java Spring Boot Backend
+  java-backend:
+    build:
+      context: ./project
+      dockerfile: Dockerfile
+    container_name: faceid-java-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      PYTHON_SERVICE_URL: http://python-ai-service:8001
+    depends_on:
+      python-ai-service:
+        condition: service_healthy
+    volumes:
+      - ./project/uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - faceid-network
+
+networks:
+  faceid-network:
+    driver: bridge

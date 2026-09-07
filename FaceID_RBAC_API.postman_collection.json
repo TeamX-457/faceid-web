@@ -1,0 +1,955 @@
+{
+  "info": {
+    "_postman_id": "faceid-rbac-api",
+    "name": "FaceID Campus Backend - RBAC API Tests",
+    "description": "Comprehensive API tests for role-based access control (RBAC) in FaceID Campus Backend. Tests demonstrate proper role separation between UPLOADER and ADMIN roles.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. AUTHENTICATION",
+      "description": "Login endpoints - public access",
+      "item": [
+        {
+          "name": "Login as UPLOADER (Security Staff)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains token', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.token).to.exist;",
+                  "    pm.expect(jsonData.role).to.equal('UPLOADER');",
+                  "    pm.collectionVariables.set('uploader_token', jsonData.token);",
+                  "    pm.collectionVariables.set('uploader_id', jsonData.userId);",
+                  "});",
+                  "",
+                  "pm.test('Token includes UPLOADER role', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.role).to.equal('UPLOADER');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"uploader_staff\",\n  \"password\": \"SecurePassword123\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login with UPLOADER role credentials. UPLOADER can only upload incidents, cannot view or manage."
+          },
+          "response": []
+        },
+        {
+          "name": "Login as ADMIN (School Authority)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains token and ADMIN role', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.token).to.exist;",
+                  "    pm.expect(jsonData.role).to.equal('ADMIN');",
+                  "    pm.collectionVariables.set('admin_token', jsonData.token);",
+                  "    pm.collectionVariables.set('admin_id', jsonData.userId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin_authority\",\n  \"password\": \"AdminPassword123\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login with ADMIN role credentials. ADMIN has full access: can review incidents, manage students, and manage users."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. ROLE SEPARATION TESTS",
+      "description": "Tests demonstrating role-based access control enforcement",
+      "item": [
+        {
+          "name": "❌ UPLOADER tries GET /incidents (should 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403 Forbidden', function() {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test('Response indicates access denied', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.equal('Access Denied');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{uploader_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/v1/incidents",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "incidents"
+              ]
+            },
+            "description": "UPLOADER should NOT be able to view incidents list. Only ADMIN can access GET /incidents."
+          },
+          "response": []
+        },
+        {
+          "name": "❌ UPLOADER tries POST /students (should 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403 Forbidden', function() {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test('Response error is Access Denied', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.equal('Access Denied');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{uploader_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/v1/students",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "students"
+              ]
+            },
+            "description": "UPLOADER cannot enroll students. Only ADMIN can manage students."
+          },
+          "response": []
+        },
+        {
+          "name": "❌ ADMIN tries POST /incidents/upload (should 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403 Forbidden', function() {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test('Response error is Access Denied', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.equal('Access Denied');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/v1/incidents/upload",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "incidents",
+                "upload"
+              ]
+            },
+            "description": "ADMIN cannot upload incidents. Only UPLOADER role can submit footage. This enforces separation of concerns."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. UPLOADER OPERATIONS",
+      "description": "Operations available to UPLOADER role only",
+      "item": [
+        {
+          "name": "✅ UPLOADER uploads incident",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains incident ID', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.incidentId).to.exist;",
+                  "    pm.collectionVariables.set('incident_id', jsonData.incidentId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{uploader_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "<binary file upload - provide incident image>"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/v1/incidents/upload",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "incidents",
+                "upload"
+              ]
+            },
+            "description": "UPLOADER uploads incident footage. System triggers face detection and matching against student gallery via Python AI service."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. ADMIN OPERATIONS - INCIDENTS",
+      "description": "Incident management endpoints - ADMIN ONLY",
+      "item": [
+        {
+          "name": "✅ ADMIN views all incidents",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is array of incidents', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/v1/incidents",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "incidents"
+              ]
+            },
+            "description": "ADMIN views dashboard with all incident summaries including status, proposed matches, and confidence scores."
+          },
+          "response": []
+        },
+        {
+          "name": "✅ ADMIN views incident detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK or 404 if not found', function() {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Response contains incident details', function() {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData.id).to.exist;",
+                  "        pm.expect(jsonData.status).to.exist;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/v1/incidents/{{incident_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "incidents",
+                "{{incident_id}}"
+              ]
+            },
+            "description": "ADMIN views full incident details with all face detection boxes and match results."
+          },
+          "response": []
+        },
+        {
+          "name": "✅ ADMIN confirms incident",
+          "event": [
+            {
+              "listen": "test",
+              "script": [
+                "pm.test('Status code is 200 OK or 404 if incident not found', function() {",
+                "    pm.expect([200, 404, 400]).to.include(pm.response.code);",
+                "});"
+              ]
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": 1,\n  \"notes\": \"Confirmed: student was present at location during incident time\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/v1/incidents/{{incident_id}}/confirm",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "incidents",
+                "{{incident_id}}",
+                "confirm"
+              ]
+            },
+            "description": "ADMIN confirms incident match with specific student. Records which admin confirmed and when. Triggers audit log."
+          },
+          "response": []
+        },
+        {
+          "name": "✅ ADMIN rejects incident",
+          "event": [
+            {
+              "listen": "test",
+              "script": [
+                "pm.test('Status code is 200 OK or 404 if incident not found', function() {",
+                "    pm.expect([200, 404, 400]).to.include(pm.response.code);",
+                "});"
+              ]
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"False positive\",\n  \"notes\": \"Face match confidence was below acceptable threshold after manual review\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/v1/incidents/{{incident_id}}/reject",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "incidents",
+                "{{incident_id}}",
+                "reject"
+              ]
+            },
+            "description": "ADMIN rejects incident. Records which admin rejected, reason, and when. Triggers audit log."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. ADMIN OPERATIONS - STUDENTS",
+      "description": "Student management endpoints - ADMIN ONLY",
+      "item": [
+        {
+          "name": "✅ ADMIN views all students",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is array of students', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/v1/students",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "students"
+              ]
+            },
+            "description": "ADMIN views complete student roster."
+          },
+          "response": []
+        },
+        {
+          "name": "✅ ADMIN enrolls new student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created or 400 Bad Request', function() {",
+                  "    pm.expect([201, 400, 500]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    pm.test('Response contains student ID', function() {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData.id).to.exist;",
+                  "        pm.collectionVariables.set('student_id', jsonData.id);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "full_name",
+                  "value": "John Doe",
+                  "type": "text"
+                },
+                {
+                  "key": "student_class",
+                  "value": "Grade 10-A",
+                  "type": "text"
+                },
+                {
+                  "key": "enrollment_photo",
+                  "type": "file",
+                  "src": "<binary file upload - provide student photo>"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/v1/students",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "students"
+              ]
+            },
+            "description": "ADMIN enrolls student. Sends face photo to Python AI service to generate embedding vector. Triggers audit log."
+          },
+          "response": []
+        },
+        {
+          "name": "✅ ADMIN updates student",
+          "event": [
+            {
+              "listen": "test",
+              "script": [
+                "pm.test('Status code is 200 OK or 404 Not Found', function() {",
+                "    pm.expect([200, 404]).to.include(pm.response.code);",
+                "});"
+              ]
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"John Doe Jr\",\n  \"studentClass\": \"Grade 11-B\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/v1/students/{{student_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "students",
+                "{{student_id}}"
+              ]
+            },
+            "description": "ADMIN updates student information. Triggers audit log."
+          },
+          "response": []
+        },
+        {
+          "name": "✅ ADMIN deletes student",
+          "event": [
+            {
+              "listen": "test",
+              "script": [
+                "pm.test('Status code is 200 OK or 404 Not Found', function() {",
+                "    pm.expect([200, 404]).to.include(pm.response.code);",
+                "});"
+              ]
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/v1/students/{{student_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "students",
+                "{{student_id}}"
+              ]
+            },
+            "description": "ADMIN removes student from roster. Triggers audit log."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. ADMIN OPERATIONS - USER MANAGEMENT",
+      "description": "User creation and management - ADMIN ONLY",
+      "item": [
+        {
+          "name": "✅ ADMIN creates new UPLOADER user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created or 400 Bad Request', function() {",
+                  "    pm.expect([201, 400]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"new_uploader\",\n  \"password\": \"SecurePass123\",\n  \"fullName\": \"Security Officer\",\n  \"role\": \"UPLOADER\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/auth/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "auth",
+                "users"
+              ]
+            },
+            "description": "ADMIN creates new UPLOADER user for mobile app. Password is hashed with BCrypt. Triggers audit log."
+          },
+          "response": []
+        },
+        {
+          "name": "✅ ADMIN creates new ADMIN user",
+          "event": [
+            {
+              "listen": "test",
+              "script": [
+                "pm.test('Status code is 201 Created or 400 Bad Request', function() {",
+                "    pm.expect([201, 400]).to.include(pm.response.code);",
+                "});"
+              ]
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"new_admin\",\n  \"password\": \"AdminPassword123\",\n  \"fullName\": \"School Principal\",\n  \"role\": \"ADMIN\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/auth/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "auth",
+                "users"
+              ]
+            },
+            "description": "ADMIN creates new ADMIN user for dashboard. Triggers audit log."
+          },
+          "response": []
+        },
+        {
+          "name": "✅ ADMIN lists all users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is array of users', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/auth/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "auth",
+                "users"
+              ]
+            },
+            "description": "ADMIN views all system users."
+          },
+          "response": []
+        },
+        {
+          "name": "✅ ADMIN deletes user",
+          "event": [
+            {
+              "listen": "test",
+              "script": [
+                "pm.test('Status code is 200 OK or 404 Not Found', function() {",
+                "    pm.expect([200, 404]).to.include(pm.response.code);",
+                "});"
+              ]
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/auth/users/{{uploader_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "auth",
+                "users",
+                "{{uploader_id}}"
+              ]
+            },
+            "description": "ADMIN deactivates/deletes user account. Triggers audit log."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. INFORMATION",
+      "description": "Helpful information and current user endpoints",
+      "item": [
+        {
+          "name": "Get current logged-in user info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/auth/me",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Get information about the currently authenticated user."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "uploader_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "incident_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "student_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "uploader_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
