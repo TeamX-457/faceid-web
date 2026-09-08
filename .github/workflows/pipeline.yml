@@ -1,0 +1,174 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Java Spring Boot backend (./project)
+  # ---------------------------------------------------------------------
+  java-build-test:
+    name: Java Backend - Build & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: project
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: faceid_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Build & run tests
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/faceid_db
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: postgres
+          APP_API_KEY: ${{ secrets.APP_API_KEY }}
+        run: ./mvnw -B clean verify
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-reports
+          path: project/target/surefire-reports/
+
+  # ---------------------------------------------------------------------
+  # Python FastAPI microservice (./faceid-python-service)
+  # ---------------------------------------------------------------------
+  python-build-test:
+    name: Python Service - Lint & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: faceid-python-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: faceid-python-service/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov ruff
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Run tests
+        run: pytest --cov=app --cov-report=xml
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: faceid-python-service/coverage.xml
+
+  # ---------------------------------------------------------------------
+  # Docker image builds (only after tests pass)
+  # ---------------------------------------------------------------------
+  docker-build-java:
+    name: Build & Push Java Image
+    needs: java-build-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./project
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/java-backend:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/java-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  docker-build-python:
+    name: Build & Push Python Image
+    needs: python-build-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./faceid-python-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/python-ai-service:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/python-ai-service:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------
+  # Deploy (customize target — SSH, k8s, cloud provider CLI, etc.)
+  # ---------------------------------------------------------------------
+  deploy:
+    name: Deploy
+    needs: [docker-build-java, docker-build-python]
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy via docker-compose (example — replace with your target)
+        run: |
+          echo "Add your deployment step here, e.g.:"
+          echo "- SSH into host and run 'docker-compose pull && docker-compose up -d'"
+          echo "- Or deploy to k8s/ECS/Cloud Run with the pushed image tags"
