@@ -1,0 +1,292 @@
+/* Guidian AI — command-center theme, shared across all pages */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #0b0e11;
+  --bg-panel: #12161a;
+  --bg-panel-raised: #171c21;
+  --line: #232a30;
+  --line-bright: #333d45;
+  --accent: #5b9bd5;
+  --accent-dim: #3a6a91;
+  --green: #3fb884;
+  --amber: #d9a441;
+  --red: #d9534f;
+  --text: #dde3e8;
+  --text-dim: #7c8892;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+.hidden { display: none !important; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  margin: 0;
+}
+
+body { min-height: 100vh; }
+
+::selection { background: var(--accent); color: #05080a; }
+
+/* ---------- Layout shells ---------- */
+
+.hud-nav {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--line);
+  padding: 0.8rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hud-brand {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.hud-brand .dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 8px;
+}
+
+.hud-nav-links { display: flex; align-items: center; gap: 1.5rem; margin-left: 2.5rem; }
+
+.hud-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding-bottom: 4px;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+.hud-link:hover { color: var(--text); }
+.hud-link.active { color: var(--accent); border-color: var(--accent); }
+
+.hud-user { color: var(--text-dim); font-size: 0.78rem; }
+
+.hud-btn-logout {
+  background: transparent;
+  border: 1px solid var(--line-bright);
+  color: var(--text-dim);
+  padding: 0.4rem 0.85rem;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.hud-btn-logout:hover { border-color: var(--text-dim); color: var(--text); }
+
+main.hud-main { max-width: 1100px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
+
+/* ---------- Panels / cards ---------- */
+
+.hud-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.hud-panel-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--line);
+  padding: 0.7rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hud-h1 {
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 0.2rem;
+}
+
+.hud-sub { color: var(--text-dim); font-size: 0.82rem; margin: 0; }
+
+.hud-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* ---------- Buttons / inputs ---------- */
+
+.hud-btn {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #0b0e11;
+  padding: 0.55rem 1rem;
+  font-size: 0.82rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.hud-btn:hover:not(:disabled) { background: #6ea8dc; }
+.hud-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.hud-btn-ghost {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid var(--line-bright);
+  color: var(--text-dim);
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.hud-btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+
+.hud-btn-danger { border-color: var(--red); color: var(--red); }
+.hud-btn-danger:hover { background: rgba(217,83,79,0.1); border-color: var(--red); color: var(--red); }
+
+.hud-input {
+  font-family: var(--font-ui);
+  background: #0d1114;
+  border: 1px solid var(--line-bright);
+  color: var(--text);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  width: 100%;
+}
+.hud-input:focus { outline: none; border-color: var(--accent); }
+.hud-input::placeholder { color: var(--text-dim); }
+
+label.hud-label { margin-bottom: 0.35rem; }
+
+/* ---------- Badges / status ---------- */
+
+.hud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.55rem;
+  border-radius: 3px;
+}
+.hud-badge.pending { color: var(--amber); background: rgba(217,164,65,0.12); }
+.hud-badge.confirmed { color: var(--green); background: rgba(63,184,132,0.12); }
+.hud-badge.rejected { color: var(--red); background: rgba(217,83,79,0.12); }
+
+/* ---------- Animations (used sparingly) ---------- */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.flicker-in { animation: fade-in .3s ease-out; }
+
+@keyframes scanline-sweep {
+  0% { top: -6%; }
+  100% { top: 106%; }
+}
+
+/* ---------- Scan reticles ---------- */
+
+.reticle {
+  position: absolute;
+  transition: border-color .2s;
+}
+.reticle-corner {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid currentColor;
+}
+.reticle-corner.tl { top: -1.5px; left: -1.5px; border-right: none; border-bottom: none; }
+.reticle-corner.tr { top: -1.5px; right: -1.5px; border-left: none; border-bottom: none; }
+.reticle-corner.bl { bottom: -1.5px; left: -1.5px; border-right: none; border-top: none; }
+.reticle-corner.br { bottom: -1.5px; right: -1.5px; border-left: none; border-top: none; }
+
+.reticle-label {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  padding: 1px 5px;
+  background: rgba(11,14,17,0.9);
+  border: 1px solid currentColor;
+  border-radius: 2px;
+}
+
+.reticle.state-processing { color: var(--amber); }
+.reticle.state-match { color: var(--green); }
+.reticle.state-unknown { color: var(--red); }
+
+/* ---------- Identification card ---------- */
+
+.id-card {
+  position: absolute;
+  min-width: 210px;
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line-bright);
+  border-radius: 4px;
+  padding: 0.7rem 0.85rem;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+.id-card.match { border-left: 2px solid var(--green); }
+.id-card.unknown { border-left: 2px solid var(--red); }
+.id-card .id-tag {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.id-card.match .id-tag { color: var(--green); }
+.id-card.unknown .id-tag { color: var(--red); }
+.id-card .id-name { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+.id-card .id-meta { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-dim); margin-top: 2px; }
+
+/* ---------- Toast ---------- */
+
+.hud-toast {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 60;
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line-bright);
+  color: var(--text);
+  padding: 0.65rem 1rem;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+.hud-toast.error { border-left: 2px solid var(--red); }
+.hud-toast.ok { border-left: 2px solid var(--green); }

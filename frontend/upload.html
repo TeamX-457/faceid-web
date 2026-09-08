@@ -3,37 +3,75 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Guidian AI - Upload Incident</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Guidian AI - Scan Terminal</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    #viewport { position: relative; aspect-ratio: 16 / 10; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    #feed-img { width: 100%; height: 100%; object-fit: contain; transition: transform 1.05s cubic-bezier(.45,0,.2,1); transform-origin: 50% 50%; }
+    .corner-frame span { position: absolute; width: 22px; height: 22px; border: 1.5px solid var(--line-bright); }
+    .corner-frame span.tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+    .corner-frame span.tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+    .corner-frame span.bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+    .corner-frame span.br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+    #scan-sweep { position: absolute; left: 0; right: 0; height: 16%; background: linear-gradient(180deg, transparent, rgba(91,155,213,0.16), transparent); animation: scanline-sweep 1.8s linear infinite; pointer-events: none; }
+    #hud-status { position: absolute; bottom: 14px; left: 16px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent); letter-spacing: .02em; }
+    .hidden { display: none !important; }
+  </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
-  <nav class="bg-slate-900 text-white px-6 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-8">
-      <span class="font-bold">Guidian AI</span>
-      <span class="text-sm font-medium border-b-2 border-white pb-1">Upload Incident</span>
+<body>
+  <nav class="hud-nav">
+    <div style="display:flex; align-items:center;">
+      <span class="hud-brand"><span class="dot"></span>GUIDIAN AI</span>
+      <div class="hud-nav-links">
+        <span class="hud-link active">Scan Terminal</span>
+      </div>
     </div>
-    <div class="flex items-center gap-4 text-sm">
-      <span id="user-label" class="text-slate-300"></span>
-      <button onclick="logout()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg">Logout</button>
+    <div style="display:flex; align-items:center; gap:1rem;">
+      <span id="user-label" class="hud-user"></span>
+      <button onclick="logout()" class="hud-btn-logout">Logout</button>
     </div>
   </nav>
 
-  <main class="max-w-xl mx-auto p-6">
-    <div class="bg-white border border-slate-200 rounded-xl p-6">
-      <h1 class="text-lg font-bold text-slate-900 mb-1">Submit Incident Footage</h1>
-      <p class="text-sm text-slate-500 mb-4">Upload a photo. It will be run through face detection and matched against the enrolled student roster.</p>
-
-      <form id="upload-form" class="space-y-3">
-        <input id="file-input" type="file" accept="image/*" required class="w-full text-sm" />
-        <button id="submit-btn" type="submit" class="w-full bg-slate-900 text-white text-sm font-semibold rounded-lg py-2 hover:bg-slate-800">
-          Upload &amp; Analyze
-        </button>
-      </form>
+  <main class="hud-main">
+    <div class="hud-panel" style="padding:1.1rem 1.4rem;">
+      <h1 class="hud-h1">Subject Intake</h1>
+      <p class="hud-sub">Submit field footage for facial detection and cross-reference against the enrolled roster.</p>
     </div>
 
-    <div id="result" class="hidden mt-4 bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-sm font-semibold text-slate-900 mb-3">Detection Result</h2>
-      <div id="result-body" class="space-y-2 text-sm text-slate-700"></div>
+    <div class="hud-panel" style="margin-top:1.25rem; overflow:hidden;">
+      <div id="viewport">
+        <!-- idle -->
+        <div id="idle-state" style="text-align:center;">
+          <input id="file-input" type="file" accept="image/*" hidden />
+          <button id="pick-btn" class="hud-btn">Select Image</button>
+          <p style="color:var(--text-dim); font-size:0.75rem; margin-top:0.9rem;">No file selected</p>
+        </div>
+
+        <!-- feed + overlays -->
+        <div id="feed-wrap" class="hidden" style="position:relative; width:100%; height:100%;">
+          <img id="feed-img" alt="Submitted feed" />
+          <div id="reticle-layer" style="position:absolute; inset:0; pointer-events:none;"></div>
+          <div id="scan-sweep" class="hidden"></div>
+          <div id="hud-status" class="hidden"></div>
+        </div>
+
+        <div class="corner-frame">
+          <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+        </div>
+      </div>
+
+      <div style="padding:0.9rem 1.25rem; border-top:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;">
+        <div id="file-name" style="color:var(--text-dim); font-size:0.78rem;"></div>
+        <div style="display:flex; gap:0.6rem;">
+          <button id="reset-btn" class="hud-btn-ghost hidden">New Scan</button>
+          <button id="scan-btn" class="hud-btn hidden">Run Detection</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="results-panel" class="hud-panel hidden flicker-in" style="margin-top:1.25rem;">
+      <div class="hud-panel-title"><span>Scan Report</span><span id="results-time" style="font-weight:400; text-transform:none;"></span></div>
+      <div id="results-body" style="padding:1rem 1.25rem;"></div>
     </div>
   </main>
 
@@ -42,48 +80,220 @@
     const session = requireRole("UPLOADER");
     document.getElementById("user-label").textContent = `${session.fullName} (${session.role})`;
 
-    document.getElementById("upload-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const file = document.getElementById("file-input").files[0];
-      if (!file) return;
+    const fileInput = document.getElementById("file-input");
+    const pickBtn = document.getElementById("pick-btn");
+    const idleState = document.getElementById("idle-state");
+    const feedWrap = document.getElementById("feed-wrap");
+    const feedImg = document.getElementById("feed-img");
+    const reticleLayer = document.getElementById("reticle-layer");
+    const scanSweep = document.getElementById("scan-sweep");
+    const hudStatus = document.getElementById("hud-status");
+    const fileNameEl = document.getElementById("file-name");
+    const scanBtn = document.getElementById("scan-btn");
+    const resetBtn = document.getElementById("reset-btn");
+    const resultsPanel = document.getElementById("results-panel");
+    const resultsBody = document.getElementById("results-body");
+    const resultsTime = document.getElementById("results-time");
 
-      const submitBtn = document.getElementById("submit-btn");
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Analyzing...";
+    let selectedFile = null;
+    let statusTimer = null;
+
+    pickBtn.addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      selectedFile = file;
+      feedImg.src = URL.createObjectURL(file);
+      idleState.classList.add("hidden");
+      feedWrap.classList.remove("hidden");
+      fileNameEl.textContent = file.name;
+      scanBtn.classList.remove("hidden");
+      resetBtn.classList.add("hidden");
+      resultsPanel.classList.add("hidden");
+      reticleLayer.innerHTML = "";
+      feedImg.style.transform = "scale(1)";
+    });
+
+    resetBtn.addEventListener("click", () => {
+      selectedFile = null;
+      fileInput.value = "";
+      feedWrap.classList.add("hidden");
+      idleState.classList.remove("hidden");
+      fileNameEl.textContent = "";
+      scanBtn.classList.add("hidden");
+      resetBtn.classList.add("hidden");
+      resultsPanel.classList.add("hidden");
+      reticleLayer.innerHTML = "";
+    });
+
+    const HUD_PHRASES = [
+      "Connecting to detection service...",
+      "Locating facial regions...",
+      "Extracting biometric features...",
+      "Comparing against roster...",
+      "Finalizing report...",
+    ];
+
+    function cycleStatus() {
+      let i = 0;
+      hudStatus.textContent = HUD_PHRASES[0];
+      statusTimer = setInterval(() => {
+        i = (i + 1) % HUD_PHRASES.length;
+        hudStatus.textContent = HUD_PHRASES[i];
+      }, 900);
+    }
+
+    function stopCycles() {
+      clearInterval(statusTimer);
+    }
+
+    // Compute the on-screen rect of the (letterboxed) image content within #feed-img.
+    function getRenderedImageRect() {
+      const cw = feedImg.clientWidth, ch = feedImg.clientHeight;
+      const nw = feedImg.naturalWidth, nh = feedImg.naturalHeight;
+      const containerAspect = cw / ch, naturalAspect = nw / nh;
+      let width, height, offsetX, offsetY;
+      if (naturalAspect > containerAspect) {
+        width = cw; height = cw / naturalAspect;
+        offsetX = 0; offsetY = (ch - height) / 2;
+      } else {
+        height = ch; width = ch * naturalAspect;
+        offsetY = 0; offsetX = (cw - width) / 2;
+      }
+      return { width, height, offsetX, offsetY, scale: width / nw };
+    }
+
+    function buildReticle(rect, id, label) {
+      const div = document.createElement("div");
+      div.className = "reticle state-processing";
+      div.id = id;
+      div.style.left = rect.left + "px";
+      div.style.top = rect.top + "px";
+      div.style.width = rect.width + "px";
+      div.style.height = rect.height + "px";
+      div.innerHTML =
+        '<span class="reticle-corner tl"></span><span class="reticle-corner tr"></span>' +
+        '<span class="reticle-corner bl"></span><span class="reticle-corner br"></span>' +
+        '<span class="reticle-label">' + label + "</span>";
+      reticleLayer.appendChild(div);
+      return div;
+    }
+
+    function showIdCard(rect, match) {
+      const card = document.createElement("div");
+      const isMatch = !!match.matchedStudentId;
+      card.className = "id-card flicker-in " + (isMatch ? "match" : "unknown");
+      const left = Math.min(rect.left + rect.width + 14, feedWrap.clientWidth - 226);
+      card.style.left = Math.max(8, left) + "px";
+      card.style.top = Math.max(8, rect.top) + "px";
+      card.innerHTML = isMatch
+        ? `<div class="id-tag">Match Found</div>
+           <div class="id-name">${match.matchedStudentName}</div>
+           <div class="id-meta">${match.matchedStudentClass || "-"}</div>
+           <div class="id-meta">Confidence ${confidencePercent(match.confidenceScore)}%</div>`
+        : `<div class="id-tag">No Match</div>
+           <div class="id-name">Unregistered subject</div>
+           <div class="id-meta">Not found in roster</div>`;
+      feedWrap.appendChild(card);
+      return card;
+    }
+
+    async function runIdentificationSequence(matches) {
+      const imgRect = getRenderedImageRect();
+
+      // Draw all reticles at their real detected coordinates first.
+      const reticles = matches.map((m, idx) => {
+        const box = m.faceBox;
+        const rect = {
+          left: imgRect.offsetX + box.x * imgRect.scale,
+          top: imgRect.offsetY + box.y * imgRect.scale,
+          width: box.width * imgRect.scale,
+          height: box.height * imgRect.scale,
+        };
+        return { rect, match: m, el: buildReticle(rect, "reticle-" + idx, "Face " + (idx + 1)) };
+      });
+
+      await sleep(450);
+
+      for (const r of reticles) {
+        const isMatch = !!r.match.matchedStudentId;
+        const centerXPct = ((r.rect.left + r.rect.width / 2) / feedImg.clientWidth) * 100;
+        const centerYPct = ((r.rect.top + r.rect.height / 2) / feedImg.clientHeight) * 100;
+
+        feedImg.style.transformOrigin = `${centerXPct}% ${centerYPct}%`;
+        feedImg.style.transform = "scale(2.2)";
+        r.el.style.zIndex = 5;
+
+        await sleep(1000);
+        const card = showIdCard(r.rect, r.match);
+        await sleep(1400);
+
+        r.el.classList.remove("state-processing");
+        r.el.classList.add(isMatch ? "state-match" : "state-unknown");
+        card.remove();
+        feedImg.style.transform = "scale(1)";
+        await sleep(800);
+      }
+    }
+
+    document.getElementById("scan-btn").addEventListener("click", async () => {
+      if (!selectedFile) return;
+
+      scanBtn.classList.add("hidden");
+      resetBtn.classList.add("hidden");
+      resultsPanel.classList.add("hidden");
+      scanSweep.classList.remove("hidden");
+      hudStatus.classList.remove("hidden");
+      cycleStatus();
 
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", selectedFile);
 
       try {
-        const res = await apiFetch("/api/v1/incidents/upload", { method: "POST", formData });
-        const resultBox = document.getElementById("result");
-        const body = document.getElementById("result-body");
-        const matches = res.matches || [];
+        const [res] = await Promise.all([
+          apiFetch("/api/v1/incidents/upload", { method: "POST", formData }),
+          sleep(2200),
+        ]);
 
-        body.innerHTML =
-          `<p><span class="font-medium">Incident ID:</span> ${res.incidentId}</p>` +
-          `<p><span class="font-medium">Faces matched:</span> ${matches.length}</p>` +
+        stopCycles();
+        scanSweep.classList.add("hidden");
+        hudStatus.classList.add("hidden");
+
+        const matches = res.matches || [];
+        if (matches.length > 0) {
+          await runIdentificationSequence(matches);
+        }
+
+        const identified = matches.filter((m) => m.matchedStudentId).length;
+        resultsTime.textContent = new Date().toLocaleString();
+        resultsBody.innerHTML =
+          `<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:1rem;">
+            <div><div class="hud-label" style="margin-bottom:3px;">Incident ID</div><div style="font-family:var(--font-mono);">#${res.incidentId}</div></div>
+            <div><div class="hud-label" style="margin-bottom:3px;">Faces Detected</div><div>${matches.length}</div></div>
+            <div><div class="hud-label" style="margin-bottom:3px;">Identified</div><div style="color:${identified > 0 ? "var(--green)" : "var(--text-dim)"};">${identified}</div></div>
+          </div>` +
           (matches.length
             ? matches
-                .map(
-                  (m) =>
-                    `<div class="border border-slate-200 rounded-lg p-2">
-                      ${m.matchedStudentName || "Unknown / Unregistered"}
-                      ${m.matchedStudentClass ? " - " + m.matchedStudentClass : ""}
-                      <span class="text-slate-400">(${confidencePercent(m.confidenceScore)}% confidence)</span>
-                    </div>`
-                )
+                .map((m) => {
+                  const isMatch = !!m.matchedStudentId;
+                  return `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.55rem 0; border-top:1px solid var(--line); font-size:0.85rem;">
+                    <span style="color:${isMatch ? "var(--green)" : "var(--red)"};">${isMatch ? m.matchedStudentName : "Unregistered subject"}${m.matchedStudentClass ? " &middot; " + m.matchedStudentClass : ""}</span>
+                    <span style="color:var(--text-dim); font-family:var(--font-mono); font-size:0.78rem;">${confidencePercent(m.confidenceScore)}%</span>
+                  </div>`;
+                })
                 .join("")
-            : `<p class="text-slate-400">No faces matched an enrolled student.</p>`);
+            : `<p style="color:var(--text-dim); font-size:0.85rem;">No faces detected in submitted feed.</p>`);
 
-        resultBox.classList.remove("hidden");
-        showToast("Incident submitted for review");
-        e.target.reset();
+        resultsPanel.classList.remove("hidden");
+        resetBtn.classList.remove("hidden");
+        showToast("Incident #" + res.incidentId + " submitted for review");
       } catch (err) {
+        stopCycles();
+        scanSweep.classList.add("hidden");
+        hudStatus.classList.add("hidden");
+        scanBtn.classList.remove("hidden");
         showToast(err.message, true);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Upload & Analyze";
       }
     });
   </script>

@@ -123,9 +123,11 @@ function confidencePercent(score) {
 function showToast(message, isError = false) {
   const el = document.createElement("div");
   el.textContent = message;
-  el.className =
-    "fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white " +
-    (isError ? "bg-red-600" : "bg-slate-900");
+  el.className = "hud-toast " + (isError ? "error" : "ok");
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3500);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
