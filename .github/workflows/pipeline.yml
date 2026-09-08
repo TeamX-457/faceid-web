@@ -44,6 +44,9 @@ jobs:
           distribution: "temurin"
           cache: "maven"
 
+      - name: Make mvnw executable
+        run: chmod +x ./mvnw
+
       - name: Build & run tests
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/faceid_db
