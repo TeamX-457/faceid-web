@@ -15,8 +15,25 @@
   --red: #d9534f;
   --text: #dde3e8;
   --text-dim: #7c8892;
+  --input-bg: #0d1114;
   --font-ui: 'Inter', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f6f8;
+  --bg-panel: #ffffff;
+  --bg-panel-raised: #f7f9fa;
+  --line: #e2e6ea;
+  --line-bright: #ccd3d9;
+  --accent: #2f6fb0;
+  --accent-dim: #6a94b8;
+  --green: #1f8a5c;
+  --amber: #a9761c;
+  --red: #b93a36;
+  --text: #1c2126;
+  --text-dim: #667079;
+  --input-bg: #ffffff;
 }
 
 * { box-sizing: border-box; }
@@ -140,14 +157,14 @@ main.hud-main { max-width: 1100px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem;
   font-weight: 600;
   background: var(--accent);
   border: 1px solid var(--accent);
-  color: #0b0e11;
+  color: #fff;
   padding: 0.55rem 1rem;
   font-size: 0.82rem;
   border-radius: 4px;
   cursor: pointer;
-  transition: background .15s;
+  transition: background .15s, border-color .15s;
 }
-.hud-btn:hover:not(:disabled) { background: #6ea8dc; }
+.hud-btn:hover:not(:disabled) { background: var(--accent-dim); border-color: var(--accent-dim); }
 .hud-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .hud-btn-ghost {
@@ -168,7 +185,7 @@ main.hud-main { max-width: 1100px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem;
 
 .hud-input {
   font-family: var(--font-ui);
-  background: #0d1114;
+  background: var(--input-bg);
   border: 1px solid var(--line-bright);
   color: var(--text);
   padding: 0.55rem 0.7rem;

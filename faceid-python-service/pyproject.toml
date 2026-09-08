@@ -1,0 +1,13 @@
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+# B008: FastAPI's dependency-injection idiom (`= File(...)`, `= Depends(...)`) is a function
+# call in an argument default by design - not the mutable-default-argument bug this rule
+# targets. This is the standard exemption for FastAPI codebases.
+#
+# BLE001: The broad `except Exception` blocks here are deliberate boundary-layer handling -
+# converting any failure from image/model processing into a clean HTTP error, or skipping one
+# bad face in a batch without failing the whole request. We can't enumerate every exception
+# type cv2/onnxruntime/PIL might raise, so catching broadly here is correct, not sloppy.
+ignore = ["B008", "BLE001"]

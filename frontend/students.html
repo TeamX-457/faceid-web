@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Guidian AI - Students</title>
+  <script>(function(){try{document.documentElement.setAttribute('data-theme', localStorage.getItem('gd_theme')||'dark');}catch(e){}})();</script>
   <link rel="stylesheet" href="theme.css" />
   <style>
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
@@ -21,8 +22,9 @@
         <a href="students.html" class="hud-link active">Students</a>
       </div>
     </div>
-    <div style="display:flex; align-items:center; gap:1rem;">
+    <div style="display:flex; align-items:center; gap:0.75rem;">
       <span id="user-label" class="hud-user"></span>
+      <button id="theme-toggle-btn" class="hud-btn-logout">Light mode</button>
       <button onclick="logout()" class="hud-btn-logout">Logout</button>
     </div>
   </nav>
@@ -74,6 +76,7 @@
 
   <script src="app.js"></script>
   <script>
+    initThemeToggle();
     const session = requireRole("ADMIN");
     document.getElementById("user-label").textContent = `${session.fullName} (${session.role})`;
 

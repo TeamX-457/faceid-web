@@ -2,11 +2,12 @@
 Face Embedding Service using MobileFaceNet/ArcFace model via ONNX Runtime
 """
 
+import logging
+import os
+
 import cv2
 import numpy as np
 import onnxruntime as ort
-import logging
-import os
 
 logger = logging.getLogger(__name__)
 

@@ -2,10 +2,11 @@
 Face Matching Service - matches detected faces against gallery embeddings
 """
 
-import numpy as np
 import json
 import logging
-from typing import List, Dict, Any
+from typing import Any
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class FaceMatchingService:
         target_embedding: np.ndarray,
         gallery_embeddings_json: str,
         similarity_threshold: float = 0.40
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Find the best matching student from gallery embeddings.
         

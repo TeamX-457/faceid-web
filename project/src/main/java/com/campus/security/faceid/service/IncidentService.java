@@ -45,61 +45,20 @@ public class IncidentService {
      */
     public IncidentResponseDTO processIncidentImage(MultipartFile file) throws Exception {
         try {
-            // 1. Save uploaded file to disk
+            // 1. Save uploaded file to disk (kept as permanent incident evidence)
             File dir = new File(uploadDir);
             if (!dir.exists()) dir.mkdirs();
-            
+
             String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
             File destFile = new File(dir, filename);
             file.transferTo(destFile);
-            
+
             logger.info("Image saved to: {}", destFile.getAbsolutePath());
 
-            // 2. Get all enrolled students' embeddings from database
-            List<Student> enrolledStudents = studentRepository.findAll();
-            
-            if (enrolledStudents.isEmpty()) {
-                logger.warn("No enrolled students found in database");
-            } else {
-                logger.info("Loaded {} enrolled students for gallery matching", enrolledStudents.size());
-            }
-            
-            // 3. Convert student embeddings to gallery format
-            List<GalleryEmbeddingDTO> galleryEmbeddings = enrolledStudents.stream()
-                    .map(student -> {
-                        List<Float> embedding = parseEmbedding(student.getEmbeddingVector());
-                        return GalleryEmbeddingDTO.builder()
-                                .studentId(student.getId())
-                                .name(student.getFullName())
-                                .studentClass(student.getStudentClass())
-                                .embedding(embedding)
-                                .build();
-                    })
-                    .collect(Collectors.toList());
+            PythonDetectAndMatchResponse pythonResponse = detectAndMatch(destFile.getAbsolutePath());
+            List<MatchResultDTO> matchResults = toMatchResults(pythonResponse);
 
-            // 4. Call Python AI microservice for detection and matching
-            logger.info("Calling Python AI service for face detection and matching");
-            PythonDetectAndMatchResponse pythonResponse = externalAIService.detectAndMatchFaces(
-                    destFile.getAbsolutePath(),
-                    galleryEmbeddings
-            );
-            
-            logger.info("Python service detected {} faces with {} matches",
-                    pythonResponse.getDetectedFacesCount(),
-                    pythonResponse.getMatches().size());
-
-            // 5. Convert Python response to MatchResultDTO for storage
-            List<MatchResultDTO> matchResults = pythonResponse.getMatches().stream()
-                    .map(pythonMatch -> MatchResultDTO.builder()
-                            .faceBox(pythonMatch.getFaceBox())
-                            .matchedStudentId(pythonMatch.getMatchedStudentId())
-                            .matchedStudentName(pythonMatch.getMatchedStudentName())
-                            .matchedStudentClass(pythonMatch.getMatchedStudentClass())
-                            .confidenceScore(pythonMatch.getConfidenceScore())
-                            .build())
-                    .collect(Collectors.toList());
-
-            // 6. Save incident audit log to database
+            // Save incident audit log to database
             Incident incident = Incident.builder()
                     .timestamp(LocalDateTime.now())
                     .mediaPath(destFile.getAbsolutePath())
@@ -112,18 +71,86 @@ public class IncidentService {
             Incident savedIncident = incidentRepository.save(incident);
             logger.info("Incident saved with ID: {}", savedIncident.getId());
 
-            // 7. Return response
             return IncidentResponseDTO.builder()
                     .incidentId(savedIncident.getId())
                     .timestamp(savedIncident.getTimestamp())
                     .mediaPath(savedIncident.getMediaPath())
                     .matches(matchResults)
                     .build();
-                    
+
         } catch (Exception e) {
             logger.error("Error processing incident image: {}", e.getMessage(), e);
             throw e;
         }
+    }
+
+    /**
+     * Live Check: run detection and roster matching immediately and return the result,
+     * without creating a permanent Incident record. Used for on-the-spot identification
+     * (e.g. an officer pointing a camera at someone) as opposed to formally reporting footage.
+     *
+     * @param file Snapshot to check against the enrolled roster
+     * @return Match results (empty list if no faces detected)
+     */
+    public List<MatchResultDTO> identifyFaces(MultipartFile file) throws Exception {
+        File tempFile = File.createTempFile("livecheck_", "_" + sanitizeFilename(file.getOriginalFilename()));
+        try {
+            file.transferTo(tempFile);
+            logger.info("Live Check snapshot saved temporarily to: {}", tempFile.getAbsolutePath());
+
+            PythonDetectAndMatchResponse pythonResponse = detectAndMatch(tempFile.getAbsolutePath());
+            return toMatchResults(pythonResponse);
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    /**
+     * Loads the enrolled roster as a gallery and calls the Python AI service to detect and
+     * match faces in the image at the given path.
+     */
+    private PythonDetectAndMatchResponse detectAndMatch(String imagePath) throws Exception {
+        List<Student> enrolledStudents = studentRepository.findAll();
+
+        if (enrolledStudents.isEmpty()) {
+            logger.warn("No enrolled students found in database");
+        } else {
+            logger.info("Loaded {} enrolled students for gallery matching", enrolledStudents.size());
+        }
+
+        List<GalleryEmbeddingDTO> galleryEmbeddings = enrolledStudents.stream()
+                .map(student -> GalleryEmbeddingDTO.builder()
+                        .studentId(student.getId())
+                        .name(student.getFullName())
+                        .studentClass(student.getStudentClass())
+                        .embedding(parseEmbedding(student.getEmbeddingVector()))
+                        .build())
+                .collect(Collectors.toList());
+
+        logger.info("Calling Python AI service for face detection and matching");
+        PythonDetectAndMatchResponse pythonResponse = externalAIService.detectAndMatchFaces(imagePath, galleryEmbeddings);
+
+        logger.info("Python service detected {} faces with {} matches",
+                pythonResponse.getDetectedFacesCount(),
+                pythonResponse.getMatches().size());
+
+        return pythonResponse;
+    }
+
+    private List<MatchResultDTO> toMatchResults(PythonDetectAndMatchResponse pythonResponse) {
+        return pythonResponse.getMatches().stream()
+                .map(pythonMatch -> MatchResultDTO.builder()
+                        .faceBox(pythonMatch.getFaceBox())
+                        .matchedStudentId(pythonMatch.getMatchedStudentId())
+                        .matchedStudentName(pythonMatch.getMatchedStudentName())
+                        .matchedStudentClass(pythonMatch.getMatchedStudentClass())
+                        .confidenceScore(pythonMatch.getConfidenceScore())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private String sanitizeFilename(String name) {
+        return name == null ? "snapshot.jpg" : name.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
     /**

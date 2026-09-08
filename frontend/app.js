@@ -131,3 +131,31 @@ function showToast(message, isError = false) {
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// ---------- Theme (light/dark) ----------
+
+const THEME_KEY = "gd_theme";
+
+function applyStoredTheme() {
+  const theme = localStorage.getItem(THEME_KEY) || "dark";
+  document.documentElement.setAttribute("data-theme", theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  const next = current === "light" ? "dark" : "light";
+  localStorage.setItem(THEME_KEY, next);
+  document.documentElement.setAttribute("data-theme", next);
+  const btn = document.getElementById("theme-toggle-btn");
+  if (btn) btn.textContent = next === "light" ? "Dark mode" : "Light mode";
+}
+
+// Call once per page after the nav is in the DOM.
+function initThemeToggle() {
+  applyStoredTheme();
+  const btn = document.getElementById("theme-toggle-btn");
+  if (!btn) return;
+  const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  btn.textContent = current === "light" ? "Dark mode" : "Light mode";
+  btn.addEventListener("click", toggleTheme);
+}

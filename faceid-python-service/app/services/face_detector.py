@@ -2,11 +2,11 @@
 Face Detection Service using YuNet model via OpenCV DNN
 """
 
-import cv2
-import numpy as np
-from typing import List, Tuple
 import logging
 import os
+
+import cv2
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class FaceDetectionService:
         else:
             logger.warning(f"YuNet model not found at {model_path}. Download it first.")
     
-    def detect_faces(self, image_data: bytes) -> Tuple[List[Tuple], np.ndarray]:
+    def detect_faces(self, image_data: bytes) -> tuple[list[tuple], np.ndarray]:
         """
         Detect faces in an image.
         

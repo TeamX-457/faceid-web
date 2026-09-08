@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Incident Management Controller with role-based access control.
@@ -74,6 +75,43 @@ public class IncidentController {
             log.error("Error processing incident upload", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorMessage("Failed to process incident: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Live Check - UPLOADER ONLY
+     * Immediately checks a snapshot against the enrolled roster. Unlike /upload, this does not
+     * create an incident record - it's for on-the-spot identification, not formal reporting.
+     */
+    @PostMapping("/identify")
+    @PreAuthorize("hasRole('UPLOADER')")
+    public ResponseEntity<?> identify(@RequestParam("file") MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body(new ErrorMessage("File is empty"));
+            }
+
+            List<MatchProposalDTO> matches = incidentService.identifyFaces(file).stream()
+                    .map(m -> MatchProposalDTO.builder()
+                            .studentId(m.getMatchedStudentId())
+                            .studentName(m.getMatchedStudentName())
+                            .studentClass(m.getMatchedStudentClass())
+                            .confidenceScore(m.getConfidenceScore())
+                            .build())
+                    .collect(Collectors.toList());
+
+            User currentUser = getCurrentUser();
+            if (currentUser != null) {
+                auditLogService.logAction(currentUser.getId(), currentUser.getUsername(), currentUser.getRole(),
+                        "LIVE_CHECK", "INCIDENT", null, null, null, null);
+            }
+
+            return ResponseEntity.ok(Map.of("matches", matches, "checkedAt", LocalDateTime.now()));
+
+        } catch (Exception e) {
+            log.error("Error processing live check", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorMessage("Failed to process live check: " + e.getMessage()));
         }
     }
 

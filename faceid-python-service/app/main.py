@@ -4,16 +4,15 @@ Handles face detection, embedding generation, and matching
 for the FaceID Campus security system
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
 import logging
-import os
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
+
 from app.schemas import (
-    DetectAndMatchRequest,
     DetectAndMatchResponse,
+    FaceBox,
     GenerateEmbeddingResponse,
     MatchResult,
-    FaceBox
 )
 from app.services.face_detector import FaceDetectionService
 from app.services.face_embedder import FaceEmbeddingService
@@ -86,7 +85,7 @@ async def detect_and_match(
                 match_results.append(match_result)
                 
             except Exception as e:
-                logger.error(f"Error processing face {face_idx}: {str(e)}")
+                logger.error(f"Error processing face {face_idx}: {e!s}")
                 continue
         
         return DetectAndMatchResponse(
@@ -97,7 +96,7 @@ async def detect_and_match(
         )
         
     except Exception as e:
-        logger.error(f"Error in detect_and_match: {str(e)}")
+        logger.error(f"Error in detect_and_match: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -129,7 +128,7 @@ async def generate_embedding(file: UploadFile = File(...)):
             logger.warning(f"Multiple faces detected ({len(faces)}). Using the largest/most confident face.")
         
         # Use the first (most confident) face
-        x, y, w, h, conf = faces[0]
+        x, y, w, h, _conf = faces[0]
         
         # Generate embedding
         embedding = embedder.generate_embedding(image_array, x, y, w, h)
@@ -143,7 +142,7 @@ async def generate_embedding(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in generate_embedding: {str(e)}")
+        logger.error(f"Error in generate_embedding: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
