@@ -57,7 +57,7 @@
         const username = document.getElementById("username").value.trim();
         const password = document.getElementById("password").value;
         const res = await apiFetch("/auth/login", { method: "POST", body: { username, password } });
-        setSession({ token: res.token, role: res.role, username: res.username, fullName: res.fullName });
+        setSession({ token: res.token, role: res.role, username: res.username, fullName: res.full_name });
         window.location.href = res.role === "ADMIN" ? "dashboard.html" : "upload.html";
       } catch (err) {
         errorBox.textContent = err.message || "Login failed";

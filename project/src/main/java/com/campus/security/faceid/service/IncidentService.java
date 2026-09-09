@@ -38,15 +38,20 @@ public class IncidentService {
 
     /**
      * Process incident image by sending to Python microservice for face detection and matching
-     * 
+     *
      * @param file Uploaded incident image
+     * @param uploadedByUserId ID of the uploader submitting this incident
+     * @param notes Optional free-text note attached at submission time
      * @return Incident response with match results
      * @throws Exception if image processing fails or AI service is unavailable
      */
-    public IncidentResponseDTO processIncidentImage(MultipartFile file) throws Exception {
+    public IncidentResponseDTO processIncidentImage(MultipartFile file, Long uploadedByUserId, String notes) throws Exception {
         try {
             // 1. Save uploaded file to disk (kept as permanent incident evidence)
-            File dir = new File(uploadDir);
+            // MultipartFile.transferTo() resolves a relative destination against the servlet
+            // container's own temp/work directory, not this app's working directory - so the
+            // destination must be made absolute first.
+            File dir = new File(uploadDir).getAbsoluteFile();
             if (!dir.exists()) dir.mkdirs();
 
             String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
@@ -62,6 +67,8 @@ public class IncidentService {
             Incident incident = Incident.builder()
                     .timestamp(LocalDateTime.now())
                     .mediaPath(destFile.getAbsolutePath())
+                    .uploadedByUserId(uploadedByUserId)
+                    .notes(notes)
                     .detectedFacesJson(objectMapper.writeValueAsString(pythonResponse.getMatches().stream()
                             .map(PythonMatchResult::getFaceBox)
                             .collect(Collectors.toList())))
@@ -73,15 +80,24 @@ public class IncidentService {
 
             return IncidentResponseDTO.builder()
                     .incidentId(savedIncident.getId())
-                    .timestamp(savedIncident.getTimestamp())
+                    .status(savedIncident.getStatus().toLowerCase())
+                    .uploadedAt(savedIncident.getTimestamp())
                     .mediaPath(savedIncident.getMediaPath())
-                    .matches(matchResults)
+                    .matches(matchResults.stream().map(IdentifyMatchDTO::from).collect(Collectors.toList()))
                     .build();
 
         } catch (Exception e) {
             logger.error("Error processing incident image: {}", e.getMessage(), e);
             throw e;
         }
+    }
+
+    /**
+     * Incidents submitted by a given uploader, most recent first - backs the Android app's
+     * History screen (GET /incidents/mine).
+     */
+    public List<Incident> getIncidentsByUploader(Long uploadedByUserId) {
+        return incidentRepository.findByUploadedByUserIdOrderByTimestampDesc(uploadedByUserId);
     }
 
     /**

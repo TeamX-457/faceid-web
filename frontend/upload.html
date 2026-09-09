@@ -275,16 +275,16 @@
 
     function showIdCard(rect, match) {
       const card = document.createElement("div");
-      const isMatch = !!match.matchedStudentId;
+      const isMatch = !!match.person_id;
       card.className = "id-card flicker-in " + (isMatch ? "match" : "unknown");
       const left = Math.min(rect.left + rect.width + 14, feedWrap.clientWidth - 226);
       card.style.left = Math.max(8, left) + "px";
       card.style.top = Math.max(8, rect.top) + "px";
       card.innerHTML = isMatch
         ? `<div class="id-tag">Match Found</div>
-           <div class="id-name">${match.matchedStudentName}</div>
-           <div class="id-meta">${match.matchedStudentClass || "-"}</div>
-           <div class="id-meta">Confidence ${confidencePercent(match.confidenceScore)}%</div>`
+           <div class="id-name">${match.name}</div>
+           <div class="id-meta">${match.student_class || "-"}</div>
+           <div class="id-meta">Confidence ${confidencePercent(match.confidence)}%</div>`
         : `<div class="id-tag">No Match</div>
            <div class="id-name">Unregistered subject</div>
            <div class="id-meta">Not found in roster</div>`;
@@ -296,7 +296,7 @@
       const imgRect = getRenderedImageRect();
 
       const reticles = matches.map((m, idx) => {
-        const box = m.faceBox;
+        const box = m.face_box;
         const rect = {
           left: imgRect.offsetX + box.x * imgRect.scale,
           top: imgRect.offsetY + box.y * imgRect.scale,
@@ -309,7 +309,7 @@
       await sleep(450);
 
       for (const r of reticles) {
-        const isMatch = !!r.match.matchedStudentId;
+        const isMatch = !!r.match.person_id;
         const centerXPct = ((r.rect.left + r.rect.width / 2) / feedImg.clientWidth) * 100;
         const centerYPct = ((r.rect.top + r.rect.height / 2) / feedImg.clientHeight) * 100;
 
@@ -330,7 +330,7 @@
     }
 
     function renderResults(matches, isLiveCheck, incidentId) {
-      const identified = matches.filter((m) => m.matchedStudentId).length;
+      const identified = matches.filter((m) => m.person_id).length;
       resultsTitle.textContent = isLiveCheck ? "Live Check Result" : "Scan Report";
       resultsTime.textContent = new Date().toLocaleString();
 
@@ -350,10 +350,10 @@
         (matches.length
           ? matches
               .map((m) => {
-                const isMatch = !!m.matchedStudentId;
+                const isMatch = !!m.person_id;
                 return `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.55rem 0; border-top:1px solid var(--line); font-size:0.85rem;">
-                  <span style="color:${isMatch ? "var(--green)" : "var(--red)"};">${isMatch ? m.matchedStudentName : "Unregistered subject"}${m.matchedStudentClass ? " &middot; " + m.matchedStudentClass : ""}</span>
-                  <span style="color:var(--text-dim); font-family:var(--font-mono); font-size:0.78rem;">${confidencePercent(m.confidenceScore)}%</span>
+                  <span style="color:${isMatch ? "var(--green)" : "var(--red)"};">${isMatch ? m.name : "Unregistered subject"}${m.student_class ? " &middot; " + m.student_class : ""}</span>
+                  <span style="color:var(--text-dim); font-family:var(--font-mono); font-size:0.78rem;">${confidencePercent(m.confidence)}%</span>
                 </div>`;
               })
               .join("")
@@ -362,7 +362,7 @@
       resultsPanel.classList.remove("hidden");
     }
 
-    async function runScan(endpoint, blob, filename, isLiveCheck) {
+    async function runScan(endpoint, fieldName, blob, filename, isLiveCheck) {
       resetButtons();
       resultsPanel.classList.add("hidden");
       scanSweep.classList.remove("hidden");
@@ -370,7 +370,7 @@
       cycleStatus();
 
       const formData = new FormData();
-      formData.append("file", blob, filename);
+      formData.append(fieldName, blob, filename);
 
       try {
         const [res] = await Promise.all([
@@ -387,13 +387,13 @@
           await runIdentificationSequence(matches);
         }
 
-        renderResults(matches, isLiveCheck, res.incidentId);
+        renderResults(matches, isLiveCheck, res.incident_id);
 
         if (isLiveCheck) {
           resumeLiveBtn.classList.remove("hidden");
         } else {
           resetBtn.classList.remove("hidden");
-          showToast("Incident #" + res.incidentId + " submitted for review");
+          showToast("Incident #" + res.incident_id + " submitted for review");
         }
       } catch (err) {
         stopCycles();
@@ -407,7 +407,7 @@
 
     scanBtn.addEventListener("click", () => {
       if (!selectedFile) return;
-      runScan("/api/v1/incidents/upload", selectedFile, selectedFile.name, false);
+      runScan("/api/v1/incidents/upload", "file", selectedFile, selectedFile.name, false);
     });
 
     checkBtn.addEventListener("click", async () => {
@@ -416,7 +416,7 @@
       showOnly(feedWrap);
       reticleLayer.innerHTML = "";
       feedImg.style.transform = "scale(1)";
-      runScan("/api/v1/incidents/identify", blob, "livecheck.jpg", true);
+      runScan("/api/v1/incidents/identify", "photo", blob, "livecheck.jpg", true);
     });
 
     window.addEventListener("beforeunload", stopCamera);

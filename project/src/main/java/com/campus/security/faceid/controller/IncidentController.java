@@ -8,6 +8,7 @@ import com.campus.security.faceid.security.JwtUserDetails;
 import com.campus.security.faceid.service.AuditLogService;
 import com.campus.security.faceid.service.IncidentService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -51,19 +52,22 @@ public class IncidentController {
      */
     @PostMapping("/upload")
     @PreAuthorize("hasRole('UPLOADER')")
-    public ResponseEntity<?> uploadIncidentMedia(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> uploadIncidentMedia(@RequestParam("file") MultipartFile file,
+                                                  @RequestParam(value = "notes", required = false) String notes) {
         try {
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body(new ErrorMessage("File is empty"));
             }
 
+            User currentUser = getCurrentUser();
+
             // Process incident image (face detection + matching)
-            IncidentResponseDTO response = incidentService.processIncidentImage(file);
+            IncidentResponseDTO response = incidentService.processIncidentImage(
+                    file, currentUser != null ? currentUser.getId() : null, notes);
 
             log.info("Incident uploaded and processed successfully. Incident ID: {}", response.getIncidentId());
 
             // Log the action
-            User currentUser = getCurrentUser();
             if (currentUser != null) {
                 auditLogService.logAction(currentUser.getId(), currentUser.getUsername(), currentUser.getRole(),
                         "INCIDENT_UPLOADED", "INCIDENT", response.getIncidentId(), null, null, null);
@@ -85,19 +89,18 @@ public class IncidentController {
      */
     @PostMapping("/identify")
     @PreAuthorize("hasRole('UPLOADER')")
-    public ResponseEntity<?> identify(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> identify(@RequestParam("photo") MultipartFile photo,
+                                       @RequestParam(value = "video", required = false) MultipartFile video) {
         try {
-            if (file.isEmpty()) {
-                return ResponseEntity.badRequest().body(new ErrorMessage("File is empty"));
+            if (photo.isEmpty()) {
+                return ResponseEntity.badRequest().body(new ErrorMessage("photo is required"));
             }
 
-            List<MatchProposalDTO> matches = incidentService.identifyFaces(file).stream()
-                    .map(m -> MatchProposalDTO.builder()
-                            .studentId(m.getMatchedStudentId())
-                            .studentName(m.getMatchedStudentName())
-                            .studentClass(m.getMatchedStudentClass())
-                            .confidenceScore(m.getConfidenceScore())
-                            .build())
+            // Matching runs off the snapshot; a short accompanying clip (as the Android app's
+            // Live Check captures) isn't used for identification, only accepted so the same
+            // request shape works whether or not one was recorded.
+            List<IdentifyMatchDTO> matches = incidentService.identifyFaces(photo).stream()
+                    .map(IdentifyMatchDTO::from)
                     .collect(Collectors.toList());
 
             User currentUser = getCurrentUser();
@@ -106,12 +109,49 @@ public class IncidentController {
                         "LIVE_CHECK", "INCIDENT", null, null, null, null);
             }
 
-            return ResponseEntity.ok(Map.of("matches", matches, "checkedAt", LocalDateTime.now()));
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("matches", matches);
+            body.put("checked_at", LocalDateTime.now());
+            return ResponseEntity.ok(body);
 
         } catch (Exception e) {
             log.error("Error processing live check", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorMessage("Failed to process live check: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get my incidents - UPLOADER ONLY
+     * Backs the Android app's History screen: this uploader's own submissions, most recent first.
+     */
+    @GetMapping("/mine")
+    @PreAuthorize("hasRole('UPLOADER')")
+    public ResponseEntity<?> getMyIncidents(HttpServletRequest request) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorMessage("User not authenticated"));
+            }
+
+            String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
+            List<Map<String, Object>> response = incidentService.getIncidentsByUploader(currentUser.getId()).stream()
+                    .map(incident -> {
+                        Map<String, Object> item = new LinkedHashMap<>();
+                        item.put("incident_id", incident.getId());
+                        item.put("thumbnail_url", baseUrl + "/uploads/" + fileName(incident.getMediaPath()));
+                        item.put("status", incident.getStatus().toLowerCase());
+                        item.put("uploaded_at", incident.getTimestamp());
+                        item.put("notes", incident.getNotes());
+                        return item;
+                    })
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error retrieving uploader's incidents", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

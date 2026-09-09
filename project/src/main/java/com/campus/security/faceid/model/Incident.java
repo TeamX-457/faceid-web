@@ -23,6 +23,14 @@ public class Incident {
     @Column(nullable = false, name = "media_path")
     private String mediaPath;
 
+    // Which uploader submitted this incident (user_id reference) - lets an UPLOADER list their own history
+    @Column(name = "uploaded_by_user_id")
+    private Long uploadedByUserId;
+
+    // Optional free-text note the uploader attached at submission time (e.g. "Fight near block C")
+    @Column(columnDefinition = "TEXT", name = "notes")
+    private String notes;
+
     // JSON formatted list of detected bounding boxes
     @Column(columnDefinition = "TEXT", name = "detected_faces")
     private String detectedFacesJson;

@@ -8,3 +8,4 @@ project.zip
 faceid-python-service/models/*.onnx
 __pycache__/
 *.pyc
+.coverage

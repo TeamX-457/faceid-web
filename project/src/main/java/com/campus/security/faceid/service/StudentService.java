@@ -46,9 +46,10 @@ public class StudentService {
         try {
             logger.info("Enrolling student: {} (class: {})", fullName, studentClass);
             
-            // 1. Save enrollment photo temporarily
-            String filename = "enrollment_" + UUID.randomUUID() + "_" + enrollmentPhoto.getOriginalFilename();
-            File tempFile = new File(filename);
+            // 1. Save enrollment photo temporarily. Must be an absolute path -
+            // MultipartFile.transferTo() resolves a relative destination against the servlet
+            // container's own temp/work directory, not this app's working directory.
+            File tempFile = File.createTempFile("enrollment_", "_" + sanitizeFilename(enrollmentPhoto.getOriginalFilename()));
             enrollmentPhoto.transferTo(tempFile);
             
             logger.debug("Enrollment photo saved to: {}", tempFile.getAbsolutePath());
@@ -93,6 +94,10 @@ public class StudentService {
             logger.error("Error enrolling student: {}", e.getMessage(), e);
             throw e;
         }
+    }
+
+    private String sanitizeFilename(String name) {
+        return name == null ? "photo.jpg" : name.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
     /**

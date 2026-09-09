@@ -11,3 +11,6 @@ target-version = "py311"
 # bad face in a batch without failing the whole request. We can't enumerate every exception
 # type cv2/onnxruntime/PIL might raise, so catching broadly here is correct, not sloppy.
 ignore = ["B008", "BLE001"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
