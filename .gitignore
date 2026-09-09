@@ -1,8 +1,8 @@
 .env
 *.env
 target/
-uploads/*
-!uploads/.gitkeep
+**/uploads/*
+!**/uploads/.gitkeep
 .claude/
 project.zip
 faceid-python-service/models/*.onnx

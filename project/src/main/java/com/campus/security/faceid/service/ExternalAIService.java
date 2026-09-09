@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service for communicating with the Python AI microservice
@@ -127,9 +129,14 @@ public class ExternalAIService {
             
             logger.info("Embedding generated successfully");
             return response;
-            
+
+        } catch (HttpClientErrorException e) {
+            // A 4xx here is Python validating the photo (e.g. no face detected), not the
+            // service being down - surface its actual reason rather than a generic message.
+            logger.warn("Python service rejected the enrollment photo: {}", e.getResponseBodyAsString());
+            throw new RuntimeException(extractDetail(e));
         } catch (RestClientException e) {
-            logger.error("Failed to communicate with Python AI service at {}: {}", 
+            logger.error("Failed to communicate with Python AI service at {}: {}",
                     pythonServiceUrl, e.getMessage());
             throw new RuntimeException(
                     "AI service is currently unavailable. Please try again later.", e);
@@ -137,6 +144,23 @@ public class ExternalAIService {
             logger.error("Error generating embedding: {}", e.getMessage());
             throw e;
         }
+    }
+
+    /**
+     * Pulls the {"detail": "..."} message out of a FastAPI error response, falling back to the
+     * raw body if it isn't in that shape.
+     */
+    private String extractDetail(HttpClientErrorException e) {
+        try {
+            Map<String, Object> body = objectMapper.readValue(e.getResponseBodyAsString(), Map.class);
+            Object detail = body.get("detail");
+            if (detail != null) {
+                return detail.toString();
+            }
+        } catch (Exception ignored) {
+            // Not JSON, or not in the expected shape - fall through to the raw body.
+        }
+        return e.getResponseBodyAsString();
     }
 
     /**
