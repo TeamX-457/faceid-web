@@ -60,6 +60,38 @@ public class UserService {
     }
 
     /**
+     * Self-service registration for mobile uploaders. Deliberately hardcodes Role.UPLOADER -
+     * this path must never be able to grant ADMIN, which stays admin-provisioned only via
+     * registerUser()/POST /auth/users.
+     */
+    public User registerUploaderSelfSignup(String username, String plainPassword, String fullName, String email) {
+        if (userRepository.existsByUsername(username)) {
+            throw new IllegalArgumentException("Username already exists: " + username);
+        }
+
+        String hashedPassword = passwordEncoder.encode(plainPassword);
+
+        User user = User.builder()
+                .username(username)
+                .passwordHash(hashedPassword)
+                .fullName(fullName)
+                .email(email)
+                .role(Role.UPLOADER)
+                .isActive(true)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        User savedUser = userRepository.save(user);
+        log.info("New uploader self-registered: {}", username);
+
+        auditLogService.logAction(savedUser.getId(), username, Role.UPLOADER, "USER_SELF_REGISTERED",
+                "USER", savedUser.getId(), null, null, null);
+
+        return savedUser;
+    }
+
+    /**
      * Authenticate user by username and plain password
      * Returns the User if credentials are valid, Optional.empty() otherwise
      */

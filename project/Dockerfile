@@ -24,12 +24,12 @@ COPY --from=builder /build/target/faceid-campus-backend-*.jar app.jar
 # Create uploads directory
 RUN mkdir -p /app/uploads
 
-# Expose port
+# Expose port (informational - actual bind port comes from $PORT at runtime, e.g. on Render)
 EXPOSE 8080
 
-# Health check
+# Health check (shell form so $PORT expands; defaults to 8080 for local/Docker runs)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 # Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -46,8 +46,15 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        // Wide-open in local dev (any localhost port); locked to the deployed frontend's
+        // origin otherwise. The Android app doesn't send an Origin header at all, so it's
+        // unaffected by this either way.
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "https://faceid-frontend.onrender.com"
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -63,7 +70,7 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints - no authentication required
-                .requestMatchers("/auth/login").permitAll()
+                .requestMatchers("/auth/login", "/auth/signup").permitAll()
                 .requestMatchers("/health").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
                 // All other endpoints require authentication (deny-by-default)

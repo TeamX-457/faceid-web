@@ -23,7 +23,10 @@ import java.util.Map;
 @Slf4j
 public class JwtTokenProvider {
 
-    @Value("${app.jwt.secret:MyVerySecureSecretKeyForJWTSigningWithMinimum32CharactersLength123456789}")
+    // No fallback on purpose: a hardcoded default here would mean anyone with read access to
+    // this source (it's a public repo) could forge a valid admin token. Startup fails clearly
+    // if APP_JWT_SECRET isn't set rather than silently signing with a known key.
+    @Value("${app.jwt.secret}")
     private String jwtSecret;
 
     @Value("${app.jwt.expiration:28800000}") // 8 hours in milliseconds (8 * 60 * 60 * 1000)

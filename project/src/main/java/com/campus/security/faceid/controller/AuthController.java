@@ -2,6 +2,7 @@ package com.campus.security.faceid.controller;
 
 import com.campus.security.faceid.dto.LoginRequestDTO;
 import com.campus.security.faceid.dto.LoginResponseDTO;
+import com.campus.security.faceid.dto.SignUpRequestDTO;
 import com.campus.security.faceid.model.Role;
 import com.campus.security.faceid.model.User;
 import com.campus.security.faceid.security.JwtTokenProvider;
@@ -87,6 +88,52 @@ public class AuthController {
             log.error("Login error", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorMessage("Login failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Self-service sign-up for mobile uploaders. Public endpoint - no authentication required.
+     * Always creates a Role.UPLOADER account (never ADMIN) and auto-logs in, matching the shape
+     * of /auth/login exactly so the Android app's post-signup flow is identical to post-login.
+     */
+    @PostMapping("/signup")
+    public ResponseEntity<?> signUp(@RequestBody SignUpRequestDTO request) {
+        try {
+            if (request.getUsername() == null || request.getUsername().isBlank() ||
+                request.getPassword() == null || request.getPassword().isBlank() ||
+                request.getFullName() == null || request.getFullName().isBlank() ||
+                request.getEmail() == null || request.getEmail().isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorMessage("username, password, email, and full_name are all required"));
+            }
+
+            User user;
+            try {
+                user = userService.registerUploaderSelfSignup(
+                        request.getUsername(), request.getPassword(), request.getFullName(), request.getEmail());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorMessage(e.getMessage()));
+            }
+
+            String token = jwtTokenProvider.generateToken(user.getId(), user.getUsername(), user.getRole());
+
+            LoginResponseDTO response = LoginResponseDTO.builder()
+                    .token(token)
+                    .tokenType("Bearer")
+                    .username(user.getUsername())
+                    .fullName(user.getFullName())
+                    .role(user.getRole())
+                    .userId(user.getId())
+                    .expiresIn(JWT_EXPIRY_SECONDS)
+                    .build();
+
+            log.info("New uploader signed up and auto-logged in: {}", user.getUsername());
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        } catch (Exception e) {
+            log.error("Signup error", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorMessage("Signup failed: " + e.getMessage()));
         }
     }
 

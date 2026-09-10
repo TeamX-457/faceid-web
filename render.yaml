@@ -1,0 +1,52 @@
+# Render Blueprint - deploys all three services in one go.
+# In the Render dashboard: New > Blueprint > point at this repo.
+#
+# After the first deploy, set the "sync: false" secrets below in each service's
+# Environment tab (Render won't accept real secret values committed in this file).
+# Values to use are already generated in the local .env file (never committed) -
+# copy them across, or generate fresh ones for production with:
+#   python -c "import secrets; print(secrets.token_urlsafe(48))"
+#
+# If Render assigns different service URLs than the ones assumed here (name already
+# taken, etc.), update: frontend/app.js's PROD_API_BASE_URL, this file's
+# PYTHON_SERVICE_URL value, and SecurityConfig.java's CORS allowedOriginPatterns.
+
+services:
+  - type: web
+    name: faceid-java-backend
+    runtime: docker
+    dockerfilePath: ./project/Dockerfile
+    dockerContext: ./project
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: APP_JWT_SECRET
+        sync: false
+      - key: APP_SEED_ADMIN_PASSWORD
+        sync: false
+      - key: APP_SEED_UPLOADER_PASSWORD
+        sync: false
+      - key: PYTHON_SERVICE_URL
+        value: https://faceid-python-service.onrender.com
+
+  - type: web
+    name: faceid-python-service
+    runtime: docker
+    dockerfilePath: ./faceid-python-service/Dockerfile
+    dockerContext: ./faceid-python-service
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: LOG_LEVEL
+        value: INFO
+
+  - type: web
+    name: faceid-frontend
+    runtime: static
+    staticPublishPath: ./frontend

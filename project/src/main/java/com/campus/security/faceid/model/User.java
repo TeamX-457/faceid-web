@@ -30,6 +30,9 @@ public class User {
     @Column(nullable = false, length = 255, name = "full_name")
     private String fullName;
 
+    @Column(length = 255, name = "email")
+    private String email;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;  // UPLOADER or ADMIN

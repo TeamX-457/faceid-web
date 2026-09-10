@@ -1,7 +1,12 @@
 // Shared config, auth, and API helpers for the Guidian AI dashboard.
 // Plain fetch()-based client for the Spring Boot backend - no build step needed.
 
-const API_BASE_URL = "http://localhost:8082";
+// Local dev talks to the backend running on localhost; everywhere else (the deployed static
+// site) talks to the deployed backend. Update PROD_API_BASE_URL if the Render service name
+// in render.yaml ever changes.
+const PROD_API_BASE_URL = "https://faceid-java-backend.onrender.com";
+const API_BASE_URL =
+  ["localhost", "127.0.0.1"].includes(window.location.hostname) ? "http://localhost:8082" : PROD_API_BASE_URL;
 
 const SessionKeys = { TOKEN: "gd_token", ROLE: "gd_role", USERNAME: "gd_username", FULL_NAME: "gd_full_name" };
 
