@@ -3,7 +3,12 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas import DetectAndMatchResponse, FaceBox, GenerateEmbeddingResponse, MatchResult
+from app.schemas import (
+    DetectAndMatchResponse,
+    FaceBox,
+    GenerateEmbeddingResponse,
+    MatchResult,
+)
 
 
 def test_face_box_requires_all_fields():
