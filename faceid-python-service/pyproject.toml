@@ -14,3 +14,7 @@ ignore = ["B008", "BLE001"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Without this, bare `pytest` (as opposed to `python -m pytest`) doesn't add this directory
+# to sys.path, so `from app...` imports in tests/ fail with ModuleNotFoundError - reproduced
+# and confirmed against CI, which invokes plain `pytest`.
+pythonpath = ["."]
