@@ -52,7 +52,9 @@ jobs:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/faceid_db
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: postgres
-          APP_API_KEY: ${{ secrets.APP_API_KEY }}
+          # Context-load test needs a real value here (no default in application.properties -
+          # see JwtTokenProvider); doesn't need to be secret, it's throwaway CI-only signing.
+          APP_JWT_SECRET: ci-test-only-jwt-secret-never-used-outside-this-pipeline-run
         run: ./mvnw -B clean verify
 
       - name: Upload test reports
