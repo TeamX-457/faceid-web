@@ -125,6 +125,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # GHCR repository names must be lowercase; github.repository preserves this org's
+      # actual casing (TeamX-457/...), which build-push-action then rejects outright
+      # ("repository name must be lowercase") - there's no lowercase() in Actions
+      # expression syntax, so compute it in the shell instead.
+      - name: Compute lowercase image prefix
+        run: echo "IMAGE_PREFIX_LC=$(echo '${{ env.IMAGE_PREFIX }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -138,8 +145,8 @@ jobs:
           context: ./project
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/java-backend:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/java-backend:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX_LC }}/java-backend:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX_LC }}/java-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -157,6 +164,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Compute lowercase image prefix
+        run: echo "IMAGE_PREFIX_LC=$(echo '${{ env.IMAGE_PREFIX }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -170,8 +180,8 @@ jobs:
           context: ./faceid-python-service
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/python-ai-service:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/python-ai-service:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX_LC }}/python-ai-service:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX_LC }}/python-ai-service:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
