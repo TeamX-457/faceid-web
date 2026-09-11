@@ -42,10 +42,11 @@ public class IncidentService {
      * @param file Uploaded incident image
      * @param uploadedByUserId ID of the uploader submitting this incident
      * @param notes Optional free-text note attached at submission time
+     * @param location Optional site/location name attached at submission time
      * @return Incident response with match results
      * @throws Exception if image processing fails or AI service is unavailable
      */
-    public IncidentResponseDTO processIncidentImage(MultipartFile file, Long uploadedByUserId, String notes) throws Exception {
+    public IncidentResponseDTO processIncidentImage(MultipartFile file, Long uploadedByUserId, String notes, String location) throws Exception {
         try {
             // 1. Save uploaded file to disk (kept as permanent incident evidence)
             // MultipartFile.transferTo() resolves a relative destination against the servlet
@@ -69,6 +70,7 @@ public class IncidentService {
                     .mediaPath(destFile.getAbsolutePath())
                     .uploadedByUserId(uploadedByUserId)
                     .notes(notes)
+                    .location(location != null && !location.isBlank() ? location.trim() : null)
                     .detectedFacesJson(objectMapper.writeValueAsString(pythonResponse.getMatches().stream()
                             .map(PythonMatchResult::getFaceBox)
                             .collect(Collectors.toList())))

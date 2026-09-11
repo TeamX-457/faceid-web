@@ -31,6 +31,11 @@ public class Incident {
     @Column(columnDefinition = "TEXT", name = "notes")
     private String notes;
 
+    // Optional site/location name the uploader attached at submission time (e.g. "Main Gate").
+    // Null for incidents submitted before this field existed - shown as "Unspecified", not hidden.
+    @Column(name = "location")
+    private String location;
+
     // JSON formatted list of detected bounding boxes
     @Column(columnDefinition = "TEXT", name = "detected_faces")
     private String detectedFacesJson;

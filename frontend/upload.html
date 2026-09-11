@@ -74,8 +74,11 @@
         </div>
       </div>
 
-      <div style="padding:0.9rem 1.25rem; border-top:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;">
-        <div id="file-name" style="color:var(--text-dim); font-size:0.78rem;"></div>
+      <div style="padding:0.9rem 1.25rem; border-top:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:1rem;">
+        <div style="display:flex; align-items:center; gap:0.75rem; flex:1; min-width:0;">
+          <div id="file-name" style="color:var(--text-dim); font-size:0.78rem; white-space:nowrap;"></div>
+          <input id="location-input" type="text" placeholder="Location (optional, e.g. Main Gate)" class="hud-input" style="max-width:220px;" />
+        </div>
         <div style="display:flex; gap:0.6rem;">
           <button id="reset-btn" class="hud-btn-ghost hidden">New Scan</button>
           <button id="resume-live-btn" class="hud-btn-ghost hidden">Resume Camera</button>
@@ -120,6 +123,7 @@
     const resultsTitle = document.getElementById("results-title");
     const resultsTime = document.getElementById("results-time");
     const modeDesc = document.getElementById("mode-desc");
+    const locationInput = document.getElementById("location-input");
 
     let mode = "file"; // "file" | "live"
     let selectedFile = null;
@@ -168,6 +172,7 @@
       resultsPanel.classList.add("hidden");
       reticleLayer.innerHTML = "";
       feedImg.style.transform = "scale(1)";
+      locationInput.classList.toggle("hidden", mode !== "file");
 
       if (mode === "file") {
         stopCamera();
@@ -359,7 +364,7 @@
       resultsPanel.classList.remove("hidden");
     }
 
-    async function runScan(endpoint, fieldName, blob, filename, isLiveCheck) {
+    async function runScan(endpoint, fieldName, blob, filename, isLiveCheck, extraFields) {
       resetButtons();
       resultsPanel.classList.add("hidden");
       scanSweep.classList.remove("hidden");
@@ -368,6 +373,11 @@
 
       const formData = new FormData();
       formData.append(fieldName, blob, filename);
+      if (extraFields) {
+        Object.entries(extraFields).forEach(([key, value]) => {
+          if (value) formData.append(key, value);
+        });
+      }
 
       try {
         const [res] = await Promise.all([
@@ -404,7 +414,9 @@
 
     scanBtn.addEventListener("click", () => {
       if (!selectedFile) return;
-      runScan("/api/v1/incidents/upload", "file", selectedFile, selectedFile.name, false);
+      runScan("/api/v1/incidents/upload", "file", selectedFile, selectedFile.name, false, {
+        location: document.getElementById("location-input").value.trim(),
+      });
     });
 
     checkBtn.addEventListener("click", async () => {

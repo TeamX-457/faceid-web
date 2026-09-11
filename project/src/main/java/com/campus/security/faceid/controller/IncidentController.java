@@ -53,7 +53,8 @@ public class IncidentController {
     @PostMapping("/upload")
     @PreAuthorize("hasRole('UPLOADER')")
     public ResponseEntity<?> uploadIncidentMedia(@RequestParam("file") MultipartFile file,
-                                                  @RequestParam(value = "notes", required = false) String notes) {
+                                                  @RequestParam(value = "notes", required = false) String notes,
+                                                  @RequestParam(value = "location", required = false) String location) {
         try {
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body(new ErrorMessage("File is empty"));
@@ -63,7 +64,7 @@ public class IncidentController {
 
             // Process incident image (face detection + matching)
             IncidentResponseDTO response = incidentService.processIncidentImage(
-                    file, currentUser != null ? currentUser.getId() : null, notes);
+                    file, currentUser != null ? currentUser.getId() : null, notes, location);
 
             log.info("Incident uploaded and processed successfully. Incident ID: {}", response.getIncidentId());
 
@@ -171,6 +172,7 @@ public class IncidentController {
                         .id(incident.getId())
                         .timestamp(incident.getTimestamp())
                         .mediaUrl("/uploads/" + fileName(incident.getMediaPath()))
+                        .location(incident.getLocation())
                         .status(incident.getStatus())
                         .reviewedByUserId(incident.getReviewedByUserId())
                         .reviewedAt(incident.getReviewedAt())

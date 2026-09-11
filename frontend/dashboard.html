@@ -30,6 +30,19 @@
 
       <div class="shell-body">
         <section class="shell-content">
+          <div class="hud-panel" style="margin-bottom:1.1rem;">
+            <div class="hud-panel-title">
+              <span>Incidents by Location</span>
+              <div id="period-tabs" style="display:flex; gap:0.2rem;">
+                <button data-period="day" class="tab-btn">Day</button>
+                <button data-period="week" class="tab-btn">Week</button>
+                <button data-period="month" class="tab-btn">Month</button>
+                <button data-period="year" class="tab-btn">Year</button>
+              </div>
+            </div>
+            <div id="location-chart" style="padding:0.9rem 1.1rem;"></div>
+          </div>
+
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.1rem;">
             <div id="tabs" style="display:flex; gap:0.2rem; background:var(--bg-panel); border:1px solid var(--line); border-radius:5px; padding:3px;">
               <button data-filter="ALL" class="tab-btn">All</button>
@@ -88,6 +101,64 @@
     let incidents = [];
     let students = [];
     let activeFilter = "ALL";
+    let activePeriod = "week";
+
+    const PERIOD_MS = {
+      day: 24 * 60 * 60 * 1000,
+      week: 7 * 24 * 60 * 60 * 1000,
+      month: 30 * 24 * 60 * 60 * 1000,
+      year: 365 * 24 * 60 * 60 * 1000,
+    };
+
+    function applyPeriodStyles() {
+      document.querySelectorAll("#period-tabs .tab-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.period === activePeriod);
+      });
+    }
+
+    function renderLocationChart() {
+      const cutoff = Date.now() - PERIOD_MS[activePeriod];
+      const inRange = incidents.filter((i) => new Date(i.timestamp).getTime() >= cutoff);
+
+      const counts = {};
+      inRange.forEach((i) => {
+        const key = i.location || "Unspecified";
+        counts[key] = (counts[key] || 0) + 1;
+      });
+
+      const rows = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      const chart = document.getElementById("location-chart");
+
+      if (rows.length === 0) {
+        chart.innerHTML = `<p style="color:var(--text-dim); font-size:0.82rem; margin:0.5rem 0;">No incidents in this period.</p>`;
+        return;
+      }
+
+      const max = rows[0][1];
+      chart.innerHTML = rows
+        .map(([label, count]) => {
+          const pct = Math.round((count / max) * 100);
+          const isUnspecified = label === "Unspecified";
+          return `
+            <div style="display:flex; align-items:center; gap:0.75rem; padding:0.35rem 0;">
+              <div style="width:130px; flex-shrink:0; font-size:0.8rem; color:${isUnspecified ? "var(--text-dim)" : "var(--text)"}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
+              <div style="flex:1; background:var(--bg-panel-raised); border-radius:3px; height:16px; overflow:hidden;">
+                <div style="width:${pct}%; height:100%; background:${isUnspecified ? "var(--line-bright)" : "var(--accent)"};"></div>
+              </div>
+              <div style="width:28px; text-align:right; font-family:var(--font-mono); font-size:0.78rem; color:var(--text-dim);">${count}</div>
+            </div>`;
+        })
+        .join("");
+    }
+
+    document.querySelectorAll("#period-tabs .tab-btn").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        activePeriod = btn.dataset.period;
+        applyPeriodStyles();
+        renderLocationChart();
+      })
+    );
+    applyPeriodStyles();
 
     function applyTabStyles() {
       document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -232,6 +303,7 @@
         renderIncidents();
         renderAlerts();
         renderAnalytics();
+        renderLocationChart();
       } catch (err) {
         setBackendStatus(false);
         document.getElementById("loading").textContent = "Failed to load incidents: " + err.message;

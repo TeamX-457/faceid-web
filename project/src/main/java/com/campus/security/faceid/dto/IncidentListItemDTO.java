@@ -15,6 +15,7 @@ public class IncidentListItemDTO {
     private Long id;
     private LocalDateTime timestamp;
     private String mediaUrl;
+    private String location;
     private String status;  // PENDING, CONFIRMED, REJECTED
     private Long reviewedByUserId;
     private LocalDateTime reviewedAt;
