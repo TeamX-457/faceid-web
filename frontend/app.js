@@ -146,13 +146,67 @@ function applyStoredTheme() {
   document.documentElement.setAttribute("data-theme", theme);
 }
 
+const SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+
+function paintThemeToggleButton(btn, theme) {
+  if (btn.hasAttribute("data-icon-toggle")) {
+    btn.innerHTML = theme === "light" ? MOON_ICON : SUN_ICON;
+    btn.title = theme === "light" ? "Switch to dark mode" : "Switch to light mode";
+  } else {
+    btn.textContent = theme === "light" ? "Dark mode" : "Light mode";
+  }
+}
+
 function toggleTheme() {
   const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
   const next = current === "light" ? "dark" : "light";
   localStorage.setItem(THEME_KEY, next);
   document.documentElement.setAttribute("data-theme", next);
   const btn = document.getElementById("theme-toggle-btn");
-  if (btn) btn.textContent = next === "light" ? "Dark mode" : "Light mode";
+  if (btn) paintThemeToggleButton(btn, next);
+}
+
+// ---------- Shared icon rail (left nav) ----------
+
+const RAIL_ICONS = {
+  dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  students: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="3"/><path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/><circle cx="18" cy="8" r="2.5"/><path d="M16 21v-1.5a4 4 0 0 0-1-2.6"/></svg>',
+  scan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
+};
+
+// Renders the left icon rail into #rail-mount, scoped to the current user's role.
+// activePage is one of "dashboard" | "students" | "scan".
+function renderIconRail(activePage) {
+  const mount = document.getElementById("rail-mount");
+  if (!mount) return;
+  const { role, fullName } = getSession();
+
+  const navItems =
+    role === "ADMIN"
+      ? [
+          { key: "dashboard", href: "dashboard.html", icon: RAIL_ICONS.dashboard, title: "Dashboard" },
+          { key: "students", href: "students.html", icon: RAIL_ICONS.students, title: "Students" },
+        ]
+      : [{ key: "scan", href: "upload.html", icon: RAIL_ICONS.scan, title: "Scan Terminal" }];
+
+  const navHtml = navItems
+    .map(
+      (item) =>
+        `<a href="${item.href}" class="rail-btn ${item.key === activePage ? "active" : ""}" title="${item.title}">${item.icon}</a>`
+    )
+    .join("");
+
+  mount.outerHTML = `
+    <aside class="icon-rail" id="rail-mount">
+      <div class="rail-brand" title="Guidian AI">G</div>
+      <nav class="rail-nav">${navHtml}</nav>
+      <div class="rail-bottom">
+        <button id="theme-toggle-btn" data-icon-toggle class="rail-btn"></button>
+        <button onclick="logout()" class="rail-btn" title="Logout${fullName ? " (" + fullName + ")" : ""}">${RAIL_ICONS.logout}</button>
+      </div>
+    </aside>`;
 }
 
 // Call once per page after the nav is in the DOM.
@@ -161,6 +215,6 @@ function initThemeToggle() {
   const btn = document.getElementById("theme-toggle-btn");
   if (!btn) return;
   const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
-  btn.textContent = current === "light" ? "Dark mode" : "Light mode";
+  paintThemeToggleButton(btn, current);
   btn.addEventListener("click", toggleTheme);
 }

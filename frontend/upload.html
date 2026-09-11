@@ -25,21 +25,14 @@
   </style>
 </head>
 <body>
-  <nav class="hud-nav">
-    <div style="display:flex; align-items:center;">
-      <span class="hud-brand"><span class="dot"></span>GUIDIAN AI</span>
-      <div class="hud-nav-links">
-        <span class="hud-link active">Scan Terminal</span>
-      </div>
-    </div>
-    <div style="display:flex; align-items:center; gap:0.75rem;">
-      <span id="user-label" class="hud-user"></span>
-      <button id="theme-toggle-btn" class="hud-btn-logout">Light mode</button>
-      <button onclick="logout()" class="hud-btn-logout">Logout</button>
-    </div>
-  </nav>
-
-  <main class="hud-main">
+  <div class="app-shell">
+    <div id="rail-mount"></div>
+    <div class="shell-main">
+      <header class="shell-topbar">
+        <span class="hud-brand" style="font-size:0.9rem;"><span class="dot"></span>Scan Terminal</span>
+        <span id="user-label" class="hud-user"></span>
+      </header>
+      <main class="shell-content" style="max-width:1000px; margin:0 auto; width:100%;">
     <div class="hud-panel" style="padding:1.1rem 1.4rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
       <div>
         <h1 class="hud-h1">Subject Intake</h1>
@@ -95,12 +88,15 @@
       <div class="hud-panel-title"><span id="results-title">Scan Report</span><span id="results-time" style="font-weight:400; text-transform:none;"></span></div>
       <div id="results-body" style="padding:1rem 1.25rem;"></div>
     </div>
-  </main>
+      </main>
+    </div>
+  </div>
 
   <script src="app.js"></script>
   <script>
-    initThemeToggle();
     const session = requireRole("UPLOADER");
+    renderIconRail("scan");
+    initThemeToggle();
     document.getElementById("user-label").textContent = `${session.fullName} (${session.role})`;
 
     const idleState = document.getElementById("idle-state");

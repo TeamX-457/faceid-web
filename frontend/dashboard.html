@@ -9,49 +9,83 @@
   <style>
     .tab-btn { background: transparent; border: none; color: var(--text-dim); font-family: var(--font-ui); font-size: 0.78rem; font-weight: 500; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; }
     .tab-btn.active { background: var(--bg-panel-raised); color: var(--text); }
-    .incident-card { background: var(--bg-panel-raised); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
-    .incident-select { font-family: var(--font-ui); font-size: 0.8rem; background: #0d1114; border: 1px solid var(--line-bright); color: var(--text); padding: 0.4rem 0.6rem; border-radius: 4px; width: 100%; }
+    .incident-select { font-family: var(--font-ui); font-size: 0.8rem; background: var(--input-bg); border: 1px solid var(--line-bright); color: var(--text); padding: 0.4rem 0.6rem; border-radius: 4px; width: 100%; }
   </style>
 </head>
 <body>
-  <nav class="hud-nav">
-    <div style="display:flex; align-items:center;">
-      <span class="hud-brand"><span class="dot"></span>GUIDIAN AI</span>
-      <div class="hud-nav-links">
-        <a href="dashboard.html" class="hud-link active">Dashboard</a>
-        <a href="students.html" class="hud-link">Students</a>
+  <div class="app-shell">
+    <div id="rail-mount"></div>
+
+    <div class="shell-main">
+      <header class="shell-topbar">
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <span class="hud-brand" style="font-size:0.9rem;"><span class="dot"></span>Incident Monitor</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:1rem;">
+          <span id="clock" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--text-dim);"></span>
+          <span id="user-label" class="hud-user"></span>
+        </div>
+      </header>
+
+      <div class="shell-body">
+        <section class="shell-content">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.1rem;">
+            <div id="tabs" style="display:flex; gap:0.2rem; background:var(--bg-panel); border:1px solid var(--line); border-radius:5px; padding:3px;">
+              <button data-filter="ALL" class="tab-btn">All</button>
+              <button data-filter="PENDING" class="tab-btn">Pending</button>
+              <button data-filter="CONFIRMED" class="tab-btn">Confirmed</button>
+              <button data-filter="REJECTED" class="tab-btn">Rejected</button>
+            </div>
+          </div>
+
+          <div id="loading" style="color:var(--text-dim); font-size:0.85rem;">Loading incidents...</div>
+          <div id="empty" class="hud-panel hidden" style="padding:3rem; text-align:center; color:var(--text-dim); font-size:0.85rem;">No incidents found.</div>
+          <div id="incident-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:1rem;"></div>
+        </section>
+
+        <aside class="analytics-panel">
+          <div>
+            <div class="hud-panel-title" style="border:none; padding:0 0 0.6rem;">Active Alerts</div>
+            <div id="alerts-list" class="hud-panel" style="padding:0 0.9rem;">
+              <p style="color:var(--text-dim); font-size:0.78rem; padding:0.75rem 0;">No pending incidents.</p>
+            </div>
+          </div>
+
+          <div>
+            <div class="hud-panel-title" style="border:none; padding:0 0 0.6rem;">Analytics</div>
+            <div class="hud-panel" style="padding:0.9rem;">
+              <div id="stats-rows"></div>
+              <div class="mini-bar-track" id="status-bar"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="hud-panel-title" style="border:none; padding:0 0 0.6rem;">System Status</div>
+            <div class="hud-panel" style="padding:0.9rem;">
+              <div class="status-dot-row"><span id="backend-dot" class="status-dot unknown"></span> Backend API</div>
+              <div class="status-dot-row"><span class="status-dot ok"></span> Session (JWT) valid</div>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
-    <div style="display:flex; align-items:center; gap:0.75rem;">
-      <span id="user-label" class="hud-user"></span>
-      <button id="theme-toggle-btn" class="hud-btn-logout">Light mode</button>
-      <button onclick="logout()" class="hud-btn-logout">Logout</button>
-    </div>
-  </nav>
-
-  <main class="hud-main">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
-      <h1 class="hud-h1">Incidents</h1>
-      <div id="tabs" style="display:flex; gap:0.2rem; background:var(--bg-panel); border:1px solid var(--line); border-radius:5px; padding:3px;">
-        <button data-filter="ALL" class="tab-btn">All</button>
-        <button data-filter="PENDING" class="tab-btn">Pending</button>
-        <button data-filter="CONFIRMED" class="tab-btn">Confirmed</button>
-        <button data-filter="REJECTED" class="tab-btn">Rejected</button>
-      </div>
-    </div>
-
-    <div id="loading" style="color:var(--text-dim); font-size:0.85rem;">Loading incidents...</div>
-    <div id="empty" class="hud-panel hidden" style="padding:3rem; text-align:center; color:var(--text-dim); font-size:0.85rem;">No incidents found.</div>
-    <div id="incident-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;"></div>
-  </main>
+  </div>
 
   <script src="app.js"></script>
   <script>
-    initThemeToggle();
     const session = requireRole("ADMIN");
+    renderIconRail("dashboard");
+    initThemeToggle();
     document.getElementById("user-label").textContent = `${session.fullName} (${session.role})`;
 
+    function tickClock() {
+      document.getElementById("clock").textContent = new Date().toLocaleString();
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+
     let incidents = [];
+    let students = [];
     let activeFilter = "ALL";
 
     function applyTabStyles() {
@@ -79,21 +113,22 @@
           const statusClass = incident.status === "CONFIRMED" ? "confirmed" : incident.status === "REJECTED" ? "rejected" : "pending";
 
           return `
-            <div class="incident-card">
-              <img src="${mediaUrl(incident.mediaUrl)}" style="width:100%; height:170px; object-fit:cover; background:#0d1114; display:block;" onerror="this.style.display='none'" />
-              <div style="padding:0.9rem;">
+            <div class="tile" id="incident-${incident.id}">
+              <div class="tile-media">
+                <span class="tile-led ${statusClass}"></span>
+                <span class="tile-timestamp">${formatDate(incident.timestamp)}</span>
+                <img src="${mediaUrl(incident.mediaUrl)}" onerror="this.style.display='none'" />
+                <div class="tile-overlay-label">${topMatch ? matchLabel(topMatch) : "No match proposed"}</div>
+              </div>
+              <div style="padding:0.75rem 0.9rem;">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
-                  <span style="color:var(--text-dim); font-size:0.72rem; font-family:var(--font-mono);">${formatDate(incident.timestamp)}</span>
                   <span class="hud-badge ${statusClass}">${incident.status}</span>
                 </div>
-                <p style="font-size:0.85rem; margin:0 0 0.5rem;">
-                  ${topMatch ? matchLabel(topMatch) : '<span style="color:var(--text-dim);">No match proposed</span>'}
-                </p>
 
                 ${
                   incident.status === "PENDING"
                     ? `
-                  <div style="padding-top:0.6rem; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:0.5rem;">
+                  <div style="display:flex; flex-direction:column; gap:0.5rem;">
                     ${
                       matches.length > 0
                         ? `<select data-id="${incident.id}" class="confirm-select incident-select">${optionsHtml}</select>`
@@ -104,7 +139,7 @@
                       <button data-id="${incident.id}" class="reject-btn hud-btn-danger hud-btn-ghost" style="flex:1; padding:0.4rem;">Reject</button>
                     </div>
                   </div>`
-                    : `<p style="font-size:0.72rem; color:var(--text-dim); margin:0.5rem 0 0; padding-top:0.5rem; border-top:1px solid var(--line);">Reviewed ${formatDate(incident.reviewedAt)}</p>`
+                    : `<p style="font-size:0.72rem; color:var(--text-dim); margin:0;">Reviewed ${formatDate(incident.reviewedAt)}</p>`
                 }
               </div>
             </div>`;
@@ -117,6 +152,98 @@
       grid.querySelectorAll(".reject-btn").forEach((btn) =>
         btn.addEventListener("click", () => rejectIncident(btn.dataset.id))
       );
+    }
+
+    function renderAlerts() {
+      const pending = incidents.filter((i) => i.status === "PENDING").slice(0, 8);
+      const list = document.getElementById("alerts-list");
+      if (pending.length === 0) {
+        list.innerHTML = '<p style="color:var(--text-dim); font-size:0.78rem; padding:0.75rem 0;">No pending incidents.</p>';
+        return;
+      }
+      list.innerHTML = pending
+        .map((incident) => {
+          const top = (incident.proposedMatches || [])[0];
+          return `<button class="alert-item" data-goto="${incident.id}">
+            <span class="alert-dot"></span>
+            <span>
+              <div>${top ? top.studentName : "Unidentified subject"}</div>
+              <div style="color:var(--text-dim); font-family:var(--font-mono); font-size:0.68rem;">${formatDate(incident.timestamp)}</div>
+            </span>
+          </button>`;
+        })
+        .join("");
+      list.querySelectorAll("[data-goto]").forEach((btn) =>
+        btn.addEventListener("click", () => {
+          activeFilter = "PENDING";
+          applyTabStyles();
+          renderIncidents();
+          const target = document.getElementById("incident-" + btn.dataset.goto);
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "center" });
+            target.classList.add("flash");
+            setTimeout(() => target.classList.remove("flash"), 1200);
+          }
+        })
+      );
+    }
+
+    function renderAnalytics() {
+      const total = incidents.length;
+      const pending = incidents.filter((i) => i.status === "PENDING").length;
+      const confirmed = incidents.filter((i) => i.status === "CONFIRMED").length;
+      const rejected = incidents.filter((i) => i.status === "REJECTED").length;
+      const withMatch = incidents.filter((i) => (i.proposedMatches || []).length > 0).length;
+      const idRate = total > 0 ? Math.round((withMatch / total) * 100) : 0;
+
+      document.getElementById("stats-rows").innerHTML = `
+        <div class="stat-row"><span>Total Incidents</span><span class="stat-value">${total}</span></div>
+        <div class="stat-row"><span>Pending Review</span><span class="stat-value" style="color:var(--amber);">${pending}</span></div>
+        <div class="stat-row"><span>Confirmed</span><span class="stat-value" style="color:var(--green);">${confirmed}</span></div>
+        <div class="stat-row"><span>Rejected</span><span class="stat-value" style="color:var(--red);">${rejected}</span></div>
+        <div class="stat-row"><span>Students Enrolled</span><span class="stat-value">${students.length}</span></div>
+        <div class="stat-row"><span>Identification Rate</span><span class="stat-value">${idRate}%</span></div>
+      `;
+
+      const bar = document.getElementById("status-bar");
+      if (total === 0) {
+        bar.innerHTML = '<div class="mini-bar-seg" style="width:100%; background:var(--line);"></div>';
+      } else {
+        bar.innerHTML = `
+          <div class="mini-bar-seg" style="width:${(pending / total) * 100}%; background:var(--amber);"></div>
+          <div class="mini-bar-seg" style="width:${(confirmed / total) * 100}%; background:var(--green);"></div>
+          <div class="mini-bar-seg" style="width:${(rejected / total) * 100}%; background:var(--red);"></div>
+        `;
+      }
+    }
+
+    function setBackendStatus(ok) {
+      const dot = document.getElementById("backend-dot");
+      dot.className = "status-dot " + (ok ? "ok" : "bad");
+    }
+
+    async function loadIncidents() {
+      try {
+        incidents = await apiFetch("/api/v1/incidents");
+        incidents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setBackendStatus(true);
+        document.getElementById("loading").classList.add("hidden");
+        renderIncidents();
+        renderAlerts();
+        renderAnalytics();
+      } catch (err) {
+        setBackendStatus(false);
+        document.getElementById("loading").textContent = "Failed to load incidents: " + err.message;
+      }
+    }
+
+    async function loadStudentCount() {
+      try {
+        students = await apiFetch("/api/v1/students");
+        renderAnalytics();
+      } catch {
+        /* non-critical for this panel */
+      }
     }
 
     async function confirmIncident(id) {
@@ -144,17 +271,6 @@
       }
     }
 
-    async function loadIncidents() {
-      try {
-        incidents = await apiFetch("/api/v1/incidents");
-        incidents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        document.getElementById("loading").classList.add("hidden");
-        renderIncidents();
-      } catch (err) {
-        document.getElementById("loading").textContent = "Failed to load incidents: " + err.message;
-      }
-    }
-
     document.querySelectorAll(".tab-btn").forEach((btn) =>
       btn.addEventListener("click", () => {
         activeFilter = btn.dataset.filter;
@@ -165,6 +281,7 @@
 
     applyTabStyles();
     loadIncidents();
+    loadStudentCount();
     setInterval(loadIncidents, 15000);
   </script>
 </body>

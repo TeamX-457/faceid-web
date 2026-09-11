@@ -14,22 +14,14 @@
   </style>
 </head>
 <body>
-  <nav class="hud-nav">
-    <div style="display:flex; align-items:center;">
-      <span class="hud-brand"><span class="dot"></span>GUIDIAN AI</span>
-      <div class="hud-nav-links">
-        <a href="dashboard.html" class="hud-link">Dashboard</a>
-        <a href="students.html" class="hud-link active">Students</a>
-      </div>
-    </div>
-    <div style="display:flex; align-items:center; gap:0.75rem;">
-      <span id="user-label" class="hud-user"></span>
-      <button id="theme-toggle-btn" class="hud-btn-logout">Light mode</button>
-      <button onclick="logout()" class="hud-btn-logout">Logout</button>
-    </div>
-  </nav>
-
-  <main class="hud-main">
+  <div class="app-shell">
+    <div id="rail-mount"></div>
+    <div class="shell-main">
+      <header class="shell-topbar">
+        <span class="hud-brand" style="font-size:0.9rem;"><span class="dot"></span>Student Roster</span>
+        <span id="user-label" class="hud-user"></span>
+      </header>
+      <main class="shell-content" style="max-width:1100px; margin:0 auto; width:100%;">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1.25rem;">
       <h1 class="hud-h1">Student Roster</h1>
       <input id="search" type="text" placeholder="Search by name..." class="hud-input" style="width:260px;" />
@@ -72,12 +64,15 @@
         <tbody id="student-rows"></tbody>
       </table>
     </div>
-  </main>
+      </main>
+    </div>
+  </div>
 
   <script src="app.js"></script>
   <script>
-    initThemeToggle();
     const session = requireRole("ADMIN");
+    renderIconRail("students");
+    initThemeToggle();
     document.getElementById("user-label").textContent = `${session.fullName} (${session.role})`;
 
     let students = [];
