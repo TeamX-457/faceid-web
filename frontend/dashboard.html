@@ -7,6 +7,7 @@
   <script>(function(){try{document.documentElement.setAttribute('data-theme', localStorage.getItem('gd_theme')||'dark');}catch(e){}})();</script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235b9bd5'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='19' font-weight='700' fill='white' text-anchor='middle'%3EG%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
   <style>
     .tab-btn { background: transparent; border: none; color: var(--text-dim); font-family: var(--font-ui); font-size: 0.78rem; font-weight: 500; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; }
     .tab-btn.active { background: var(--bg-panel-raised); color: var(--text); }
@@ -32,7 +33,7 @@
         <section class="shell-content">
           <div class="hud-panel" style="margin-bottom:1.1rem;">
             <div class="hud-panel-title">
-              <span>Incidents by Location</span>
+              <span>Incident Trend</span>
               <div id="period-tabs" style="display:flex; gap:0.2rem;">
                 <button data-period="day" class="tab-btn">Day</button>
                 <button data-period="week" class="tab-btn">Week</button>
@@ -40,7 +41,22 @@
                 <button data-period="year" class="tab-btn">Year</button>
               </div>
             </div>
-            <div id="location-chart" style="padding:0.9rem 1.1rem;"></div>
+            <div style="padding:1.1rem 1.1rem 0.5rem; height:220px;">
+              <canvas id="trend-chart"></canvas>
+            </div>
+            <div style="border-top:1px solid var(--line); padding:0.9rem 1.1rem;">
+              <div style="font-size:0.68rem; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; color:var(--text-dim); margin-bottom:0.6rem;">By Location, this period</div>
+              <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+                <thead>
+                  <tr style="color:var(--text-dim); text-align:left; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.03em;">
+                    <th style="padding:0.3rem 0; font-weight:600;">Location</th>
+                    <th style="padding:0.3rem 0; font-weight:600; text-align:right;">Incidents</th>
+                    <th style="padding:0.3rem 0; font-weight:600; text-align:right;">Share</th>
+                  </tr>
+                </thead>
+                <tbody id="location-table-body"></tbody>
+              </table>
+            </div>
           </div>
 
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.1rem;">
@@ -91,6 +107,11 @@
     renderIconRail("dashboard");
     initThemeToggle();
     document.getElementById("user-label").textContent = `${session.fullName} (${session.role})`;
+    document.getElementById("theme-toggle-btn").addEventListener("click", () => {
+      // Re-render so the chart picks up the new theme's colors immediately, not just on
+      // the next 15s data refresh.
+      if (typeof renderTrendChart === "function" && incidents.length >= 0) setTimeout(renderTrendChart, 0);
+    });
 
     function tickClock() {
       document.getElementById("clock").textContent = new Date().toLocaleString();
@@ -103,22 +124,104 @@
     let activeFilter = "ALL";
     let activePeriod = "week";
 
-    const PERIOD_MS = {
-      day: 24 * 60 * 60 * 1000,
-      week: 7 * 24 * 60 * 60 * 1000,
-      month: 30 * 24 * 60 * 60 * 1000,
-      year: 365 * 24 * 60 * 60 * 1000,
-    };
-
     function applyPeriodStyles() {
       document.querySelectorAll("#period-tabs .tab-btn").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.period === activePeriod);
       });
     }
 
-    function renderLocationChart() {
-      const cutoff = Date.now() - PERIOD_MS[activePeriod];
-      const inRange = incidents.filter((i) => new Date(i.timestamp).getTime() >= cutoff);
+    function getCssVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    // Bucket boundaries for the selected period, oldest to newest. Each incident falls into
+    // bucket i when boundaries[i] <= timestamp < boundaries[i+1].
+    function buildBoundaries(period) {
+      const now = new Date();
+      const boundaries = [];
+      if (period === "year") {
+        for (let i = 12; i >= 0; i--) {
+          boundaries.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
+        }
+      } else {
+        const unitMs = period === "day" ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+        const count = period === "day" ? 24 : period === "week" ? 7 : 30;
+        for (let i = count; i >= 0; i--) {
+          boundaries.push(new Date(now.getTime() - i * unitMs));
+        }
+      }
+      return boundaries;
+    }
+
+    function formatBucketLabel(date, period) {
+      if (period === "day") return date.toLocaleTimeString([], { hour: "numeric" });
+      if (period === "week") return date.toLocaleDateString([], { weekday: "short" });
+      if (period === "month") return date.toLocaleDateString([], { month: "short", day: "numeric" });
+      return date.toLocaleDateString([], { month: "short", year: "2-digit" });
+    }
+
+    let trendChart = null;
+
+    function renderTrendChart() {
+      const boundaries = buildBoundaries(activePeriod);
+      const bucketCount = boundaries.length - 1;
+      const counts = new Array(bucketCount).fill(0);
+      const rangeStart = boundaries[0].getTime();
+
+      incidents.forEach((incident) => {
+        const t = new Date(incident.timestamp).getTime();
+        if (t < rangeStart) return;
+        for (let i = 0; i < bucketCount; i++) {
+          if (t >= boundaries[i].getTime() && t < boundaries[i + 1].getTime()) {
+            counts[i]++;
+            break;
+          }
+        }
+      });
+
+      const labels = boundaries.slice(0, bucketCount).map((d) => formatBucketLabel(d, activePeriod));
+      const accent = getCssVar("--accent");
+      const textDim = getCssVar("--text-dim");
+      const line = getCssVar("--line");
+
+      if (trendChart) trendChart.destroy();
+      trendChart = new Chart(document.getElementById("trend-chart"), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Incidents",
+              data: counts,
+              borderColor: accent,
+              backgroundColor: accent + "26",
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3,
+              pointBackgroundColor: accent,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: textDim, font: { size: 11 } }, grid: { color: line } },
+            y: {
+              beginAtZero: true,
+              ticks: { color: textDim, font: { size: 11 }, precision: 0 },
+              grid: { color: line },
+            },
+          },
+        },
+      });
+    }
+
+    function renderLocationTable() {
+      const boundaries = buildBoundaries(activePeriod);
+      const rangeStart = boundaries[0].getTime();
+      const inRange = incidents.filter((i) => new Date(i.timestamp).getTime() >= rangeStart);
 
       const counts = {};
       inRange.forEach((i) => {
@@ -127,35 +230,37 @@
       });
 
       const rows = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-      const chart = document.getElementById("location-chart");
+      const body = document.getElementById("location-table-body");
+      const total = inRange.length;
 
       if (rows.length === 0) {
-        chart.innerHTML = `<p style="color:var(--text-dim); font-size:0.82rem; margin:0.5rem 0;">No incidents in this period.</p>`;
+        body.innerHTML = `<tr><td colspan="3" style="padding:0.6rem 0; color:var(--text-dim);">No incidents in this period.</td></tr>`;
         return;
       }
 
-      const max = rows[0][1];
-      chart.innerHTML = rows
+      body.innerHTML = rows
         .map(([label, count]) => {
-          const pct = Math.round((count / max) * 100);
           const isUnspecified = label === "Unspecified";
-          return `
-            <div style="display:flex; align-items:center; gap:0.75rem; padding:0.35rem 0;">
-              <div style="width:130px; flex-shrink:0; font-size:0.8rem; color:${isUnspecified ? "var(--text-dim)" : "var(--text)"}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
-              <div style="flex:1; background:var(--bg-panel-raised); border-radius:3px; height:16px; overflow:hidden;">
-                <div style="width:${pct}%; height:100%; background:${isUnspecified ? "var(--line-bright)" : "var(--accent)"};"></div>
-              </div>
-              <div style="width:28px; text-align:right; font-family:var(--font-mono); font-size:0.78rem; color:var(--text-dim);">${count}</div>
-            </div>`;
+          const share = total > 0 ? Math.round((count / total) * 100) : 0;
+          return `<tr style="border-top:1px solid var(--line);">
+            <td style="padding:0.4rem 0; color:${isUnspecified ? "var(--text-dim)" : "var(--text)"};">${label}</td>
+            <td style="padding:0.4rem 0; text-align:right; font-family:var(--font-mono);">${count}</td>
+            <td style="padding:0.4rem 0; text-align:right; color:var(--text-dim); font-family:var(--font-mono);">${share}%</td>
+          </tr>`;
         })
         .join("");
+    }
+
+    function renderTrend() {
+      renderTrendChart();
+      renderLocationTable();
     }
 
     document.querySelectorAll("#period-tabs .tab-btn").forEach((btn) =>
       btn.addEventListener("click", () => {
         activePeriod = btn.dataset.period;
         applyPeriodStyles();
-        renderLocationChart();
+        renderTrend();
       })
     );
     applyPeriodStyles();
@@ -303,7 +408,7 @@
         renderIncidents();
         renderAlerts();
         renderAnalytics();
-        renderLocationChart();
+        renderTrend();
       } catch (err) {
         setBackendStatus(false);
         document.getElementById("loading").textContent = "Failed to load incidents: " + err.message;
