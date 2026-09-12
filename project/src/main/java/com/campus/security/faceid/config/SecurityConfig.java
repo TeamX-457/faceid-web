@@ -1,9 +1,11 @@
 package com.campus.security.faceid.config;
 
 import com.campus.security.faceid.security.JwtAuthFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -17,7 +19,10 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Spring Security Configuration for FaceID Campus Backend.
@@ -38,6 +43,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -76,6 +82,22 @@ public class SecurityConfig {
                 // All other endpoints require authentication (deny-by-default)
                 .anyRequest().authenticated()
             )
+            // Without this, Spring Security's default fallback for a missing/invalid/expired
+            // token is a bare 403 - indistinguishable from a real "wrong role" denial, and the
+            // frontend's stale-session recovery (clear + redirect to login) only triggers on
+            // 401. This makes "not authenticated" and "authenticated but not permitted" two
+            // genuinely different, correctly-coded responses.
+            .exceptionHandling(handling -> handling.authenticationEntryPoint((request, response, authException) -> {
+                response.setStatus(401);
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                Map<String, Object> body = new LinkedHashMap<>();
+                body.put("timestamp", LocalDateTime.now());
+                body.put("status", 401);
+                body.put("error", "Unauthorized");
+                body.put("message", "Authentication failed: missing, invalid, or expired token. Please login again.");
+                body.put("path", request.getRequestURI());
+                objectMapper.writeValue(response.getWriter(), body);
+            }))
             // Add JWT filter BEFORE UsernamePasswordAuthenticationFilter
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
