@@ -14,9 +14,12 @@
 services:
   - type: web
     name: faceid-java-backend
-    runtime: docker
-    dockerfilePath: ./project/Dockerfile
-    dockerContext: ./project
+    runtime: image
+    image:
+      url: ghcr.io/teamx-457/faceid-web/java-backend:latest
+    registryCredential:
+      fromRegistryCreds:
+        name: Render_Package_Access
     plan: free
     healthCheckPath: /health
     envVars:
@@ -34,12 +37,17 @@ services:
         sync: false
       - key: PYTHON_SERVICE_URL
         value: https://faceid-python-service.onrender.com
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx300m -XX:MaxMetaspaceSize=80m"
 
   - type: web
     name: faceid-python-service
-    runtime: docker
-    dockerfilePath: ./faceid-python-service/Dockerfile
-    dockerContext: ./faceid-python-service
+    runtime: image
+    image:
+      url: ghcr.io/teamx-457/faceid-web/python-ai-service:latest
+    registryCredential:
+      fromRegistryCreds:
+        name: Render_Package_Access
     plan: free
     healthCheckPath: /health
     envVars:

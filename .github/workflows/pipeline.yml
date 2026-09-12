@@ -2,10 +2,10 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
-  workflow_dispatch: 
+    branches: [main]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -195,8 +195,19 @@ jobs:
     environment: production
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - name: Deploy via docker-compose (example — replace with your target)
+      - name: Compute lowercase image prefix
+        run: echo "IMAGE_PREFIX_LC=$(echo '${{ env.IMAGE_PREFIX }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
+      - name: Deploy Java backend on Render
         run: |
-          echo "Add your deployment step here, e.g.:"
-          echo "- SSH into host and run 'docker-compose pull && docker-compose up -d'"
-          echo "- Or deploy to k8s/ECS/Cloud Run with the pushed image tags"
+          curl -f -X POST "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID_JAVA }}/deploys" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"imageUrl": "'"${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX_LC }}/java-backend:${{ github.sha }}"'"}'
+
+      - name: Deploy Python service on Render
+        run: |
+          curl -f -X POST "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID_PYTHON }}/deploys" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"imageUrl": "'"${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX_LC }}/python-ai-service:${{ github.sha }}"'"}'
