@@ -4,7 +4,7 @@
 // Local dev talks to the backend running on localhost; everywhere else (the deployed static
 // site) talks to the deployed backend. Update PROD_API_BASE_URL if the Render service name
 // in render.yaml ever changes.
-const PROD_API_BASE_URL = "https://faceid-java-backend.onrender.com";
+const PROD_API_BASE_URL = "https://java-backend-latest-i4rw.onrender.com";
 const API_BASE_URL =
   ["localhost", "127.0.0.1"].includes(window.location.hostname) ? "http://localhost:8082" : PROD_API_BASE_URL;
 
