@@ -7,6 +7,7 @@ for the FaceID Campus security system
 import logging
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import Response
 
 from app.schemas import (
     DetectAndMatchResponse,
@@ -16,6 +17,7 @@ from app.schemas import (
 )
 from app.services.face_detector import FaceDetectionService
 from app.services.face_embedder import FaceEmbeddingService
+from app.services.face_enhancer import FaceEnhancementService
 from app.services.face_matcher import FaceMatchingService
 
 # Configure logging
@@ -33,6 +35,7 @@ app = FastAPI(
 detector = FaceDetectionService()
 embedder = FaceEmbeddingService()
 matcher = FaceMatchingService()
+enhancer = FaceEnhancementService()
 
 logger.info("FaceID AI Microservice initialized successfully")
 
@@ -143,6 +146,25 @@ async def generate_embedding(file: UploadFile = File(...)):
         raise
     except Exception as e:
         logger.error(f"Error in generate_embedding: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/enhance-face")
+async def enhance_face(file: UploadFile = File(...)):
+    """
+    Clean up a blurry/dark face crop (denoise + sharpen + contrast correction, upscaling small
+    crops first) so a reviewer can see the person more clearly. Returns the enhanced image
+    directly as JPEG bytes - used by both the admin web dashboard and the Android app when a
+    tapped/zoomed face is too blurry to make out.
+    """
+    try:
+        image_data = await file.read()
+        enhanced_bytes = enhancer.enhance(image_data)
+        return Response(content=enhanced_bytes, media_type="image/jpeg")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in enhance_face: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

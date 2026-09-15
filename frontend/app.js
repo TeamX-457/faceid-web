@@ -98,6 +98,40 @@ async function apiFetch(path, { method = "GET", body, formData } = {}) {
   return text ? JSON.parse(text) : undefined;
 }
 
+// Same auth/error handling as apiFetch, but for endpoints that return raw bytes (e.g. the
+// enhanced-face image) rather than JSON.
+async function apiFetchBlob(path, { method = "GET", formData } = {}) {
+  const headers = {};
+  const { token } = getSession();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, { method, headers, body: formData });
+  } catch {
+    throw new ApiError("Network error - is the backend running on " + API_BASE_URL + "?", 0);
+  }
+
+  if (res.status === 401) {
+    clearSession();
+    window.location.href = "index.html";
+    throw new ApiError("Session expired. Please sign in again.", 401);
+  }
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const data = await res.json();
+      message = data.message || data.error || message;
+    } catch {
+      /* non-JSON error body, keep default message */
+    }
+    throw new ApiError(message, res.status);
+  }
+
+  return res.blob();
+}
+
 function mediaUrl(path) {
   if (!path) return "";
   return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;

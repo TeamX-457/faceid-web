@@ -164,6 +164,49 @@ public class ExternalAIService {
     }
 
     /**
+     * Send a (typically blurry/dark) face crop to the Python microservice's cleanup pipeline
+     * and return the enhanced JPEG bytes as-is - used by the admin dashboard and the Android
+     * app when a zoomed-in face is too hard to make out.
+     *
+     * @param imageBytes Raw bytes of the face crop (already cropped client-side)
+     * @return Enhanced JPEG image bytes
+     * @throws Exception if the service is unreachable or rejects the image
+     */
+    public byte[] enhanceFace(byte[] imageBytes, String originalFilename) throws Exception {
+        try {
+            String enhanceUrl = pythonServiceUrl + "/enhance-face";
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", new org.springframework.core.io.ByteArrayResource(imageBytes) {
+                @Override
+                public String getFilename() {
+                    return originalFilename != null ? originalFilename : "face.jpg";
+                }
+            });
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            HttpEntity<MultiValueMap<String, Object>> request = new HttpEntity<>(body, headers);
+
+            logger.info("Calling Python service to enhance face crop: {}", enhanceUrl);
+            byte[] enhanced = restTemplate.postForObject(enhanceUrl, request, byte[].class);
+            logger.info("Face enhancement completed ({} bytes -> {} bytes)", imageBytes.length,
+                    enhanced != null ? enhanced.length : 0);
+            return enhanced;
+
+        } catch (HttpClientErrorException e) {
+            logger.warn("Python service rejected the face crop for enhancement: {}", e.getResponseBodyAsString());
+            throw new RuntimeException(extractDetail(e));
+        } catch (RestClientException e) {
+            logger.error("Failed to communicate with Python AI service at {}: {}",
+                    pythonServiceUrl, e.getMessage());
+            throw new RuntimeException(
+                    "AI service is currently unavailable. Please try again later.", e);
+        }
+    }
+
+    /**
      * Check if the Python AI microservice is healthy and reachable
      * 
      * @return true if service is reachable, false otherwise

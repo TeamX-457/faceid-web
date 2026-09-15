@@ -259,7 +259,14 @@
       return { width, height, offsetX, offsetY, scale: width / nw };
     }
 
-    function buildReticle(rect, id, label) {
+    // Rolling clicks on the same reticle within this window count toward a triple-click; a
+    // pause longer than this (or clicking a different reticle) restarts the count at 1.
+    const TAP_BURST_WINDOW_MS = 600;
+    let lastTappedReticleId = null;
+    let tapBurstCount = 0;
+    let lastTapTime = 0;
+
+    function buildReticle(rect, id, label, match) {
       const div = document.createElement("div");
       div.className = "reticle state-processing";
       div.id = id;
@@ -271,26 +278,129 @@
         '<span class="reticle-corner tl"></span><span class="reticle-corner tr"></span>' +
         '<span class="reticle-corner bl"></span><span class="reticle-corner br"></span>' +
         '<span class="reticle-label">' + label + "</span>";
+      div.addEventListener("click", () => onReticleTap(div, rect, match));
       reticleLayer.appendChild(div);
       return div;
     }
 
+    // Single tap zooms in on that face (tap again to zoom back out); a third rapid tap on the
+    // same box re-runs identification scoped to just that crop, so a specific person can be
+    // pulled out of a crowd shot.
+    function onReticleTap(el, rect, match) {
+      const now = Date.now();
+      tapBurstCount = (el.id === lastTappedReticleId && now - lastTapTime < TAP_BURST_WINDOW_MS) ? tapBurstCount + 1 : 1;
+      lastTappedReticleId = el.id;
+      lastTapTime = now;
+
+      if (tapBurstCount >= 3) {
+        tapBurstCount = 0;
+        researchFace(el, rect);
+        return;
+      }
+
+      const isZoomed = feedImg.style.transform === "scale(2.2)";
+      document.querySelectorAll(".id-card").forEach((c) => c.remove());
+      if (isZoomed) {
+        feedImg.style.transform = "scale(1)";
+        return;
+      }
+      const centerXPct = ((rect.left + rect.width / 2) / feedImg.clientWidth) * 100;
+      const centerYPct = ((rect.top + rect.height / 2) / feedImg.clientHeight) * 100;
+      feedImg.style.transformOrigin = `${centerXPct}% ${centerYPct}%`;
+      feedImg.style.transform = "scale(2.2)";
+      showIdCard(rect, match);
+    }
+
+    // Crops the currently-displayed image down to just the region under a reticle (in the
+    // image's natural pixel space, padded a bit for context) and returns it as a JPEG Blob.
+    function cropRegionToBlob(rect, paddingFraction) {
+      const imgRect = getRenderedImageRect();
+      const nx = (rect.left - imgRect.offsetX) / imgRect.scale;
+      const ny = (rect.top - imgRect.offsetY) / imgRect.scale;
+      const nw = rect.width / imgRect.scale;
+      const nh = rect.height / imgRect.scale;
+      const padX = nw * paddingFraction;
+      const padY = nh * paddingFraction;
+      const sx = Math.max(0, nx - padX);
+      const sy = Math.max(0, ny - padY);
+      const sw = Math.min(feedImg.naturalWidth - sx, nw + padX * 2);
+      const sh = Math.min(feedImg.naturalHeight - sy, nh + padY * 2);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = sw;
+      canvas.height = sh;
+      canvas.getContext("2d").drawImage(feedImg, sx, sy, sw, sh, 0, 0, sw, sh);
+      return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.92));
+    }
+
+    async function researchFace(el, rect) {
+      el.classList.add("state-processing");
+      el.classList.remove("state-match", "state-unknown");
+      try {
+        const blob = await cropRegionToBlob(rect, 0.4);
+        const res = await apiFetch("/api/v1/incidents/identify", {
+          method: "POST",
+          formData: (() => {
+            const fd = new FormData();
+            fd.append("photo", blob, "research.jpg");
+            return fd;
+          })(),
+        });
+        const best = (res.matches || [])[0];
+        const isMatch = best && !!best.person_id;
+        el.classList.add(isMatch ? "state-match" : "state-unknown");
+        showToast(isMatch ? `Identified: ${best.name}` : "No match found for this person.", !isMatch);
+        if (best) showIdCard(rect, best);
+      } catch (err) {
+        el.classList.add("state-unknown");
+        showToast(err.message, true);
+      }
+    }
+
     function showIdCard(rect, match) {
+      document.querySelectorAll(".id-card").forEach((c) => c.remove());
       const card = document.createElement("div");
       const isMatch = !!match.person_id;
       card.className = "id-card flicker-in " + (isMatch ? "match" : "unknown");
       const left = Math.min(rect.left + rect.width + 14, feedWrap.clientWidth - 226);
       card.style.left = Math.max(8, left) + "px";
       card.style.top = Math.max(8, rect.top) + "px";
-      card.innerHTML = isMatch
+      card.innerHTML = (isMatch
         ? `<div class="id-tag">Match Found</div>
            <div class="id-name">${match.name}</div>
            <div class="id-meta">${match.student_class || "-"}</div>
            <div class="id-meta">Confidence ${confidencePercent(match.confidence)}%</div>`
         : `<div class="id-tag">No Match</div>
            <div class="id-name">Unregistered subject</div>
-           <div class="id-meta">Not found in roster</div>`;
+           <div class="id-meta">Not found in roster</div>`) +
+        `<button class="id-enhance-btn">Enhance image</button>
+         <img class="id-enhance-preview" alt="Enhanced face" />`;
       feedWrap.appendChild(card);
+
+      card.querySelector(".id-enhance-btn").addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        const preview = card.querySelector(".id-enhance-preview");
+        btn.disabled = true;
+        btn.textContent = "Enhancing...";
+        try {
+          const blob = await cropRegionToBlob(rect, 0.25);
+          const enhancedBlob = await apiFetchBlob("/api/v1/incidents/enhance-face", {
+            method: "POST",
+            formData: (() => {
+              const fd = new FormData();
+              fd.append("file", blob, "face.jpg");
+              return fd;
+            })(),
+          });
+          preview.src = URL.createObjectURL(enhancedBlob);
+          preview.classList.add("visible");
+          btn.textContent = "Enhanced";
+        } catch (err) {
+          btn.textContent = "Enhance failed";
+          showToast(err.message, true);
+        }
+      });
+
       return card;
     }
 
@@ -305,7 +415,7 @@
           width: box.width * imgRect.scale,
           height: box.height * imgRect.scale,
         };
-        return { rect, match: m, el: buildReticle(rect, "reticle-" + idx, "Face " + (idx + 1)) };
+        return { rect, match: m, el: buildReticle(rect, "reticle-" + idx, "Face " + (idx + 1), m) };
       });
 
       await sleep(450);

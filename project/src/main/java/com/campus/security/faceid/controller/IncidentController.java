@@ -45,6 +45,7 @@ public class IncidentController {
     private final AuditLogService auditLogService;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final com.campus.security.faceid.service.ExternalAIService externalAIService;
 
     /**
      * Upload incident media - UPLOADER ONLY
@@ -119,6 +120,31 @@ public class IncidentController {
             log.error("Error processing live check", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorMessage("Failed to process live check: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Enhance a blurry/dark face crop - UPLOADER and ADMIN.
+     * Stateless passthrough to the Python microservice's cleanup pipeline (denoise, sharpen,
+     * contrast correction); doesn't touch incident records, just returns cleaned-up JPEG bytes
+     * for a reviewer to look at. Used from a zoomed-in face box on both the Android app and the
+     * admin web dashboard's Scan Terminal.
+     */
+    @PostMapping("/enhance-face")
+    @PreAuthorize("hasAnyRole('UPLOADER','ADMIN')")
+    public ResponseEntity<?> enhanceFace(@RequestParam("file") MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body(new ErrorMessage("file is required"));
+            }
+            byte[] enhanced = externalAIService.enhanceFace(file.getBytes(), file.getOriginalFilename());
+            return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.IMAGE_JPEG)
+                    .body(enhanced);
+        } catch (Exception e) {
+            log.error("Error enhancing face crop", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorMessage("Failed to enhance image: " + e.getMessage()));
         }
     }
 
