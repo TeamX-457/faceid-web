@@ -59,7 +59,9 @@ public class SecurityConfig {
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
-                "https://faceid-frontend.onrender.com"
+                "https://faceid-frontend.onrender.com",
+                "https://faceid-web.vercel.app",
+                "https://*.vercel.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
