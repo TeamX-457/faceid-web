@@ -136,14 +136,15 @@ public class IncidentService {
             logger.info("Loaded {} enrolled students for gallery matching", enrolledStudents.size());
         }
 
-        List<GalleryEmbeddingDTO> galleryEmbeddings = enrolledStudents.stream()
-                .map(student -> GalleryEmbeddingDTO.builder()
-                        .studentId(student.getId())
-                        .name(student.getFullName())
-                        .studentClass(student.getStudentClass())
-                        .embedding(parseEmbedding(student.getEmbeddingVector()))
-                        .build())
-                .collect(Collectors.toList());
+        // Up to 3 gallery rows per student (front/left/right), all sharing the same identity -
+        // the Python matcher just does a linear best-similarity scan over the whole gallery, so
+        // this is all it takes to match against off-angle footage too, with zero Python changes.
+        List<GalleryEmbeddingDTO> galleryEmbeddings = new ArrayList<>();
+        for (Student student : enrolledStudents) {
+            addGalleryEntry(galleryEmbeddings, student, student.getEmbeddingVector());
+            addGalleryEntry(galleryEmbeddings, student, student.getLeftEmbeddingVector());
+            addGalleryEntry(galleryEmbeddings, student, student.getRightEmbeddingVector());
+        }
 
         logger.info("Calling Python AI service for face detection and matching");
         PythonDetectAndMatchResponse pythonResponse = externalAIService.detectAndMatchFaces(imagePath, galleryEmbeddings);
@@ -169,6 +170,16 @@ public class IncidentService {
 
     private String sanitizeFilename(String name) {
         return name == null ? "snapshot.jpg" : name.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    private void addGalleryEntry(List<GalleryEmbeddingDTO> gallery, Student student, String embeddingStr) {
+        if (embeddingStr == null || embeddingStr.isBlank()) return;
+        gallery.add(GalleryEmbeddingDTO.builder()
+                .studentId(student.getId())
+                .name(student.getFullName())
+                .studentClass(student.getStudentClass())
+                .embedding(parseEmbedding(embeddingStr))
+                .build());
     }
 
     /**

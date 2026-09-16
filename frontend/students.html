@@ -31,7 +31,7 @@
 
     <div id="add-form" class="hidden hud-panel" style="padding:1.1rem; margin-bottom:1.25rem;">
       <h2 style="font-size:0.85rem; font-weight:600; margin:0 0 0.9rem;">Enroll New Student</h2>
-      <form id="enroll-form" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:0.9rem; align-items:end;">
+      <form id="enroll-form" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:0.9rem;">
         <div>
           <label class="hud-label">Full Name</label>
           <input id="enroll-name" required class="hud-input" style="margin-top:0.35rem;" />
@@ -41,10 +41,55 @@
           <input id="enroll-class" required class="hud-input" style="margin-top:0.35rem;" />
         </div>
         <div>
-          <label class="hud-label">Photo</label>
-          <input id="enroll-photo" type="file" accept="image/*" required style="margin-top:0.5rem; font-size:0.8rem; color:var(--text-dim); width:100%;" />
+          <label class="hud-label">Date of Birth</label>
+          <input id="enroll-dob" type="date" class="hud-input" style="margin-top:0.35rem;" />
         </div>
-        <div style="display:flex; gap:0.5rem;">
+        <div>
+          <label class="hud-label">Height (cm)</label>
+          <input id="enroll-height" type="number" min="0" max="260" class="hud-input" style="margin-top:0.35rem;" />
+        </div>
+        <div>
+          <label class="hud-label">Skin Tone</label>
+          <input id="enroll-skin-tone" class="hud-input" placeholder="e.g. Light, Medium, Dark" style="margin-top:0.35rem;" />
+        </div>
+        <div>
+          <label class="hud-label">Guardian Phone</label>
+          <input id="enroll-guardian-phone" type="tel" class="hud-input" style="margin-top:0.35rem;" />
+        </div>
+        <div style="grid-column: span 2;">
+          <label class="hud-label">Home Address</label>
+          <input id="enroll-address" class="hud-input" placeholder="For follow-up if this student is identified as involved in an incident" style="margin-top:0.35rem;" />
+        </div>
+
+        <div style="grid-column: 1 / -1; display:grid; grid-template-columns:repeat(3, 1fr); gap:0.9rem; padding-top:0.9rem; border-top:1px solid var(--line);">
+          <div>
+            <label class="hud-label">Face Photo &middot; Front (required)</label>
+            <div class="hud-file-picker" style="margin-top:0.5rem;">
+              <input id="enroll-photo-front" type="file" accept="image/*" hidden />
+              <button type="button" class="hud-btn-ghost hud-file-btn" data-for="enroll-photo-front">Choose File</button>
+              <span class="hud-file-name" data-for="enroll-photo-front">No file chosen</span>
+            </div>
+          </div>
+          <div>
+            <label class="hud-label">Face Photo &middot; Left Profile</label>
+            <div class="hud-file-picker" style="margin-top:0.5rem;">
+              <input id="enroll-photo-left" type="file" accept="image/*" hidden />
+              <button type="button" class="hud-btn-ghost hud-file-btn" data-for="enroll-photo-left">Choose File</button>
+              <span class="hud-file-name" data-for="enroll-photo-left">No file chosen</span>
+            </div>
+          </div>
+          <div>
+            <label class="hud-label">Face Photo &middot; Right Profile</label>
+            <div class="hud-file-picker" style="margin-top:0.5rem;">
+              <input id="enroll-photo-right" type="file" accept="image/*" hidden />
+              <button type="button" class="hud-btn-ghost hud-file-btn" data-for="enroll-photo-right">Choose File</button>
+              <span class="hud-file-name" data-for="enroll-photo-right">No file chosen</span>
+            </div>
+          </div>
+          <p style="grid-column: 1 / -1; margin: 0; color:var(--text-dim); font-size:0.72rem;">Left/right profile shots are optional but meaningfully improve identification odds when a student is only seen at an angle (e.g. security footage of a crowd or fight).</p>
+        </div>
+
+        <div style="grid-column: 1 / -1; display:flex; gap:0.5rem; padding-top:0.5rem;">
           <button type="submit" class="hud-btn" style="flex:1;">Enroll</button>
           <button type="button" id="cancel-add" class="hud-btn-ghost" style="flex:1;">Cancel</button>
         </div>
@@ -56,8 +101,10 @@
       <table>
         <thead>
           <tr>
+            <th>Photo</th>
             <th>Full Name</th>
             <th>Class</th>
+            <th>Height</th>
             <th>Enrolled</th>
             <th style="text-align:right;">Actions</th>
           </tr>
@@ -86,8 +133,14 @@
         .map(
           (s) => `
         <tr data-row="${s.id}">
+          <td>${
+            s.frontPhotoPath
+              ? `<img src="${mediaUrl("/uploads/" + s.frontPhotoPath)}" alt="" style="width:32px; height:32px; border-radius:50%; object-fit:cover; display:block;" />`
+              : `<div style="width:32px; height:32px; border-radius:50%; background:var(--bg-panel-raised); border:1px solid var(--line);"></div>`
+          }</td>
           <td>${s.fullName}</td>
           <td style="color:var(--text-dim);">${s.studentClass}</td>
+          <td style="color:var(--text-dim);">${s.heightCm ? s.heightCm + " cm" : "-"}</td>
           <td style="color:var(--text-dim); font-family:var(--font-mono); font-size:0.78rem;">${formatDate(s.enrollmentDate)}</td>
           <td style="text-align:right;">
             <button data-id="${s.id}" class="edit-btn link-btn" style="color:var(--accent); margin-right:1rem;">Edit</button>
@@ -117,8 +170,29 @@
       if (fullName === null) return;
       const studentClass = prompt("Class:", student.studentClass);
       if (studentClass === null) return;
+      const dateOfBirth = prompt("Date of birth (yyyy-mm-dd, optional):", student.dateOfBirth || "");
+      if (dateOfBirth === null) return;
+      const heightCm = prompt("Height in cm (optional):", student.heightCm || "");
+      if (heightCm === null) return;
+      const skinTone = prompt("Skin tone (optional):", student.skinTone || "");
+      if (skinTone === null) return;
+      const homeAddress = prompt("Home address (optional):", student.homeAddress || "");
+      if (homeAddress === null) return;
+      const guardianPhone = prompt("Guardian phone (optional):", student.guardianPhone || "");
+      if (guardianPhone === null) return;
       try {
-        await apiFetch(`/api/v1/students/${id}`, { method: "PUT", body: { fullName, studentClass } });
+        await apiFetch(`/api/v1/students/${id}`, {
+          method: "PUT",
+          body: {
+            fullName,
+            studentClass,
+            dateOfBirth: dateOfBirth.trim() || null,
+            heightCm: heightCm ? Number(heightCm) : null,
+            skinTone: skinTone.trim() || null,
+            homeAddress: homeAddress.trim() || null,
+            guardianPhone: guardianPhone.trim() || null,
+          },
+        });
         showToast("Student updated");
         await loadStudents();
       } catch (err) {
@@ -143,17 +217,52 @@
     document.getElementById("add-btn").addEventListener("click", () => addForm.classList.toggle("hidden"));
     document.getElementById("cancel-add").addEventListener("click", () => addForm.classList.add("hidden"));
 
+    // Styled file pickers: a hidden native input driven by a real button, so it matches the
+    // rest of the HUD instead of the raw OS "Choose File" control.
+    document.querySelectorAll(".hud-file-btn").forEach((btn) => {
+      btn.addEventListener("click", () => document.getElementById(btn.dataset.for).click());
+    });
+    document.querySelectorAll('.hud-file-picker input[type="file"]').forEach((input) => {
+      input.addEventListener("change", () => {
+        const label = document.querySelector(`.hud-file-name[data-for="${input.id}"]`);
+        label.textContent = input.files[0] ? input.files[0].name : "No file chosen";
+      });
+    });
+
     document.getElementById("enroll-form").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const frontFile = document.getElementById("enroll-photo-front").files[0];
+      if (!frontFile) {
+        showToast("A front-facing face photo is required", true);
+        return;
+      }
+
       const formData = new FormData();
       formData.append("full_name", document.getElementById("enroll-name").value);
       formData.append("student_class", document.getElementById("enroll-class").value);
-      formData.append("enrollment_photo", document.getElementById("enroll-photo").files[0]);
+      formData.append("front_photo", frontFile);
+
+      const leftFile = document.getElementById("enroll-photo-left").files[0];
+      if (leftFile) formData.append("left_photo", leftFile);
+      const rightFile = document.getElementById("enroll-photo-right").files[0];
+      if (rightFile) formData.append("right_photo", rightFile);
+
+      const dob = document.getElementById("enroll-dob").value;
+      if (dob) formData.append("date_of_birth", dob);
+      const height = document.getElementById("enroll-height").value;
+      if (height) formData.append("height_cm", height);
+      const skinTone = document.getElementById("enroll-skin-tone").value.trim();
+      if (skinTone) formData.append("skin_tone", skinTone);
+      const address = document.getElementById("enroll-address").value.trim();
+      if (address) formData.append("home_address", address);
+      const guardianPhone = document.getElementById("enroll-guardian-phone").value.trim();
+      if (guardianPhone) formData.append("guardian_phone", guardianPhone);
 
       try {
         await apiFetch("/api/v1/students", { method: "POST", formData });
         showToast("Student enrolled");
         e.target.reset();
+        document.querySelectorAll(".hud-file-name").forEach((s) => (s.textContent = "No file chosen"));
         addForm.classList.add("hidden");
         await loadStudents();
       } catch (err) {

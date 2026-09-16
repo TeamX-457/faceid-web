@@ -1,5 +1,6 @@
 package com.campus.security.faceid.controller;
 
+import com.campus.security.faceid.dto.EnrollStudentRequest;
 import com.campus.security.faceid.model.Student;
 import com.campus.security.faceid.model.User;
 import com.campus.security.faceid.repository.UserRepository;
@@ -8,6 +9,7 @@ import com.campus.security.faceid.service.AuditLogService;
 import com.campus.security.faceid.service.StudentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,29 +79,53 @@ public class StudentController {
     }
 
     /**
-     * Enroll a new student with face embedding - ADMIN ONLY
+     * Enroll a new student with face embedding(s) - ADMIN ONLY
      * Request: multipart/form-data
-     * - full_name: Student's full name
-     * - student_class: Student's class/grade
-     * - enrollment_photo: Image file of student's face
+     * - full_name, student_class: required
+     * - front_photo: required - clear frontal photo of the student's face
+     * - left_photo, right_photo: optional profile-angle photos, improve matching from
+     *   off-angle footage (e.g. a crowd/fight scene)
+     * - date_of_birth (yyyy-MM-dd), height_cm, skin_tone, home_address, guardian_phone: optional
+     *   descriptive fields for human identification/follow-up, not used by the matching model
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> enrollStudent(
             @RequestParam("full_name") String fullName,
             @RequestParam("student_class") String studentClass,
-            @RequestParam("enrollment_photo") MultipartFile enrollmentPhoto) {
+            @RequestParam("front_photo") MultipartFile frontPhoto,
+            @RequestParam(value = "left_photo", required = false) MultipartFile leftPhoto,
+            @RequestParam(value = "right_photo", required = false) MultipartFile rightPhoto,
+            @RequestParam(value = "date_of_birth", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateOfBirth,
+            @RequestParam(value = "height_cm", required = false) Integer heightCm,
+            @RequestParam(value = "skin_tone", required = false) String skinTone,
+            @RequestParam(value = "home_address", required = false) String homeAddress,
+            @RequestParam(value = "guardian_phone", required = false) String guardianPhone) {
         try {
             // Validate input
             if (fullName == null || fullName.isBlank() ||
                 studentClass == null || studentClass.isBlank() ||
-                enrollmentPhoto == null || enrollmentPhoto.isEmpty()) {
+                frontPhoto == null || frontPhoto.isEmpty()) {
                 return ResponseEntity.badRequest()
-                        .body(new ErrorMessage("full_name, student_class, and enrollment_photo are required"));
+                        .body(new ErrorMessage("full_name, student_class, and front_photo are required"));
             }
 
-            // Enroll student (generates embedding via Python service)
-            Student newStudent = studentService.enrollStudent(fullName, studentClass, enrollmentPhoto);
+            EnrollStudentRequest request = EnrollStudentRequest.builder()
+                    .fullName(fullName)
+                    .studentClass(studentClass)
+                    .frontPhoto(frontPhoto)
+                    .leftPhoto(leftPhoto)
+                    .rightPhoto(rightPhoto)
+                    .dateOfBirth(dateOfBirth)
+                    .heightCm(heightCm)
+                    .skinTone(skinTone)
+                    .homeAddress(homeAddress)
+                    .guardianPhone(guardianPhone)
+                    .build();
+
+            // Enroll student (generates embedding(s) via Python service)
+            Student newStudent = studentService.enrollStudent(request);
 
             // Get current user for audit log
             User currentUser = getCurrentUser();
@@ -140,7 +167,12 @@ public class StudentController {
             Student updatedStudent = studentService.updateStudent(
                     id,
                     request.getFullName(),
-                    request.getStudentClass()
+                    request.getStudentClass(),
+                    request.getDateOfBirth(),
+                    request.getHeightCm(),
+                    request.getSkinTone(),
+                    request.getHomeAddress(),
+                    request.getGuardianPhone()
             );
 
             // Get current user for audit log
@@ -218,6 +250,11 @@ public class StudentController {
     public static class UpdateStudentRequest {
         private String fullName;
         private String studentClass;
+        private LocalDate dateOfBirth;
+        private Integer heightCm;
+        private String skinTone;
+        private String homeAddress;
+        private String guardianPhone;
     }
 
     /**
