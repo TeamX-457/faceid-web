@@ -60,6 +60,7 @@ public class SecurityConfig {
                 "http://localhost:*",
                 "http://127.0.0.1:*",
                 "https://faceid-frontend.onrender.com",
+                "https://faceid-web-wpfj.onrender.com",
                 "https://faceid-web.vercel.app",
                 "https://*.vercel.app"
         ));
