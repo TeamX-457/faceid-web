@@ -12,11 +12,12 @@ logger = logging.getLogger(__name__)
 
 # YuNet was being fed full camera-resolution photos (often 3000-4000px on the long side)
 # uncapped - on a free-tier, memory-constrained Render instance that's enough to crash the
-# whole process (seen as a bare 502 from Render's proxy, not even a normal error response).
-# Capping the long side before detection keeps memory/CPU bounded; detected boxes are scaled
-# back up to the original image's coordinate space before being returned, so nothing downstream
-# (embedding cropping, face_box sent to clients) needs to know detection ran on a smaller copy.
-_MAX_DETECTION_DIMENSION = 1280
+# whole process (seen as a bare 502 from Render's proxy, not even a normal error response, and
+# under repeated real-photo load even after an earlier, less aggressive cap). Kept deliberately
+# modest: this is a face detector, not a print job, and the embedding model only needs a
+# 112x112 crop anyway. detect_faces() also hands back the already-downscaled image itself (not
+# the original) so callers never need to hold the full-resolution array in memory at all.
+_MAX_DETECTION_DIMENSION = 800
 
 
 class FaceDetectionService:
@@ -51,30 +52,32 @@ class FaceDetectionService:
         else:
             logger.warning(f"YuNet model not found at {model_path}. Download it first.")
     
-    def detect_faces(self, image_data: bytes) -> tuple[list[tuple], np.ndarray]:
+    def detect_faces(self, image_data: bytes) -> tuple[list[tuple], np.ndarray, float]:
         """
         Detect faces in an image.
-        
+
         Args:
             image_data: Raw image bytes
-            
+
         Returns:
             Tuple of:
-            - List of face detections: [(x, y, width, height, confidence), ...]
-            - Image array (numpy array in BGR format)
+            - List of face detections in ORIGINAL image coordinates: [(x, y, width, height, confidence), ...]
+            - The downscaled image actually used for detection (BGR). Callers should crop faces
+              from this, not the original - it's plenty of resolution for a 112x112 embedding
+              input, and avoids ever holding the full camera-resolution image in memory.
+            - scale: multiply original-space coordinates by this to get this image's space
+              (i.e. detection_space = original_space * scale).
         """
         if self.detector is None:
             raise RuntimeError("Face detector not initialized. YuNet model is required.")
-        
+
         # Decode image from bytes
         nparr = np.frombuffer(image_data, np.uint8)
         image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
+
         if image is None:
             raise ValueError("Failed to decode image. Ensure it's a valid image file.")
 
-        # Run detection on a capped-size copy to keep memory/CPU bounded on a real
-        # camera-resolution photo; scale factor maps detected boxes back to the original.
         height, width = image.shape[:2]
         longest_side = max(height, width)
         scale = _MAX_DETECTION_DIMENSION / longest_side if longest_side > _MAX_DETECTION_DIMENSION else 1.0
@@ -83,6 +86,7 @@ class FaceDetectionService:
             if scale != 1.0
             else image
         )
+        del image  # the full-resolution array is never needed again past this point
 
         self.detector.setInputSize(detection_image.shape[:2][::-1])
 
@@ -98,4 +102,4 @@ class FaceDetectionService:
                 ))
 
         logger.info(f"Detected {len(faces)} faces (detection ran at scale={scale:.3f})")
-        return faces, image
+        return faces, detection_image, scale

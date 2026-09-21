@@ -59,17 +59,22 @@ async def detect_and_match(
         # Read image file
         image_data = await file.read()
         
-        # Detect faces
-        faces, image_array = detector.detect_faces(image_data)
+        # Detect faces. face_box coordinates (x, y, w, h) are in the ORIGINAL image's space -
+        # that's the contract clients (Java/Android/web) expect - but embeddings are cropped
+        # from detection_image (the downscaled copy actually used for detection) via `scale`,
+        # so the full camera-resolution image is never held in memory past detection.
+        faces, detection_image, scale = detector.detect_faces(image_data)
         logger.info(f"Detected {len(faces)} faces in uploaded image")
-        
+
         # Generate embeddings for each detected face and match
         match_results = []
-        
+
         for face_idx, (x, y, w, h, conf) in enumerate(faces):
             try:
-                # Generate embedding for this face
-                embedding = embedder.generate_embedding(image_array, x, y, w, h)
+                # Generate embedding for this face, cropped from the downscaled detection image
+                embedding = embedder.generate_embedding(
+                    detection_image, int(x * scale), int(y * scale), int(w * scale), int(h * scale),
+                )
                 
                 # Match against gallery embeddings
                 best_match = matcher.find_best_match(
@@ -119,22 +124,24 @@ async def generate_embedding(file: UploadFile = File(...)):
         image_data = await file.read()
         
         # Detect faces
-        faces, image_array = detector.detect_faces(image_data)
-        
+        faces, detection_image, scale = detector.detect_faces(image_data)
+
         if len(faces) == 0:
             raise HTTPException(
                 status_code=400,
                 detail="No face detected in the image. Please provide a clear photo with a single face."
             )
-        
+
         if len(faces) > 1:
             logger.warning(f"Multiple faces detected ({len(faces)}). Using the largest/most confident face.")
-        
+
         # Use the first (most confident) face
         x, y, w, h, _conf = faces[0]
-        
-        # Generate embedding
-        embedding = embedder.generate_embedding(image_array, x, y, w, h)
+
+        # Generate embedding, cropped from the downscaled detection image (see detect_faces)
+        embedding = embedder.generate_embedding(
+            detection_image, int(x * scale), int(y * scale), int(w * scale), int(h * scale),
+        )
         
         return GenerateEmbeddingResponse(
             success=True,
